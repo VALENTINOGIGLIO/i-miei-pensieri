@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>I miei Pensieri — Scarica l'App</title>
+  <meta name="description" content="Scarica I miei Pensieri per iOS, Android o usala direttamente nel browser. La tua mente, al sicuro con crittografia end-to-end." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0D0B0A;
+      --bg-card: #161413;
+      --bg-card2: #1C1A18;
+      --border: rgba(255,255,255,0.08);
+      --text: #F5F3EF;
+      --text-muted: #8B8785;
+      --accent: #C06B3E;
+      --accent-light: #E0896A;
+      --accent-glow: rgba(192, 107, 62, 0.25);
+      --green: #3DD68C;
+      --blue: #60A5FA;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ─── NOISE GRAIN ─────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      background-size: 200px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── GLOW ORBS ───────────────────────────────── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 500px; height: 500px; background: rgba(192,107,62,0.12); top: -150px; left: -150px; }
+    .orb-2 { width: 400px; height: 400px; background: rgba(96,165,250,0.06); bottom: 50px; right: -100px; }
+
+    /* ─── LAYOUT ──────────────────────────────────── */
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ─── NAV ─────────────────────────────────────── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(13,11,10,0.85);
+      backdrop-filter: blur(20px);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), #E0896A);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .nav-cta {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 50px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .nav-cta:hover { background: var(--accent-light); transform: scale(1.03); }
+
+    /* ─── HERO ────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 80px 20px 60px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(192,107,62,0.12);
+      border: 1px solid rgba(192,107,62,0.3);
+      color: var(--accent-light);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 50px;
+      margin-bottom: 24px;
+    }
+    .hero-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(2.5rem, 8vw, 4.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero-title span {
+      background: linear-gradient(135deg, var(--accent), #F4A261, #E0896A);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      line-height: 1.7;
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+    .hero-pills {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 0;
+    }
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      border-radius: 50px;
+    }
+    .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+    /* ─── DOWNLOAD CARDS ──────────────────────────── */
+    .cards-section { padding: 20px 0 60px; }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 700px) {
+      .cards-grid { grid-template-columns: 1fr; }
+      .card-featured { order: -1; }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.14); }
+
+    .card-featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 20px 60px -10px var(--accent-glow);
+      position: relative;
+      padding-top: 48px;
+    }
+    .featured-badge {
+      position: absolute;
+      top: -1px; left: 50%; transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 16px;
+      border-radius: 0 0 12px 12px;
+    }
+
+    .card-icon {
+      width: 52px; height: 52px;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      background: var(--bg-card2);
+    }
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .card-desc {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.6;
+      flex: 1;
+    }
+    .card-ext {
+      display: inline-block;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--accent-light);
+      background: rgba(192,107,62,0.12);
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 13px 20px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn:hover { transform: scale(1.02); opacity: 0.92; }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-featured { background: var(--accent); color: white; box-shadow: 0 8px 24px -4px var(--accent-glow); }
+    .btn-ghost { background: var(--bg-card2); color: var(--text); border: 1px solid var(--border); }
+
+    /* ─── INSTRUCTIONS ────────────────────────────── */
+    .instructions { padding: 0 0 60px; }
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .section-sub { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 28px; }
+
+    .accordion { display: flex; flex-direction: column; gap: 10px; }
+
+    .accordion-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .accordion-item.open { border-color: rgba(192,107,62,0.4); }
+
+    .accordion-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 22px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      color: var(--text);
+    }
+    .accordion-btn-left { display: flex; align-items: center; gap: 12px; }
+    .accordion-icon-wrap {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--bg-card2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .accordion-label { font-weight: 600; font-size: 0.95rem; }
+    .accordion-sublabel { color: var(--text-muted); font-size: 0.8rem; }
+    .accordion-arrow {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      transition: transform 0.3s;
+      flex-shrink: 0;
+    }
+    .accordion-item.open .accordion-arrow { transform: rotate(180deg); }
+
+    .accordion-body {
+      display: none;
+      padding: 0 22px 22px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      line-height: 1.8;
+    }
+    .accordion-item.open .accordion-body { display: block; }
+
+    .steps { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .step-num {
+      min-width: 26px; height: 26px;
+      background: rgba(192,107,62,0.15);
+      border: 1px solid rgba(192,107,62,0.3);
+      color: var(--accent-light);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-text { color: var(--text); }
+    .step-text strong { color: var(--text); }
+    .step-text code {
+      font-family: monospace;
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      padding: 1px 7px;
+      border-radius: 6px;
+      font-size: 0.85em;
+      color: var(--accent-light);
+    }
+
+    .tip-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      background: rgba(96,165,250,0.08);
+      border: 1px solid rgba(96,165,250,0.2);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: #93C5FD;
+      font-size: 0.82rem;
+    }
+    .tip-icon { flex-shrink: 0; }
+
+    /* ─── LEGAL ───────────────────────────────────── */
+    .legal-section { padding: 0 0 80px; }
+    .legal-box {
+      background: rgba(220,38,38,0.06);
+      border: 1px solid rgba(220,38,38,0.2);
+      border-radius: 20px;
+      padding: 24px 26px;
+      display: flex;
+      gap: 16px;
+    }
+    .legal-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+    .legal-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #FCA5A5;
+      margin-bottom: 8px;
+    }
+    .legal-text {
+      font-size: 0.78rem;
+      line-height: 1.8;
+      color: var(--text-muted);
+    }
+
+    /* ─── FOOTER ──────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      text-align: center;
+      padding: 30px 20px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+    footer a { color: var(--text-muted); text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="https://i-miei-pensieri.web.app" class="nav-brand">
+      <div class="nav-icon">🧠</div>
+      I miei Pensieri
+    </a>
+    <a href="https://i-miei-pensieri.web.app" class="nav-cta">Apri la Web App →</a>
+  </nav>
+
+  <!-- HERO -->
+  <div class="wrapper">
+    <section class="hero">
+      <div class="hero-badge">🛡️ Crittografia End-to-End · Nessun Accesso ai Tuoi Dati</div>
+      <h1 class="hero-title">
+        La tua mente,<br>
+        <span>al sicuro</span>.<br>
+        Su ogni dispositivo.
+      </h1>
+      <p class="hero-sub">
+        I pensieri che non dici a nessuno sono spesso i più veri. Qui puoi parlare liberamente — l'IA li ascolta, li comprende e li organizza. Nessun giudizio. Nessun occhio esterno. Solo tu.
+      </p>
+      <div class="hero-pills">
+        <span class="pill"><span class="pill-dot"></span>Crittografia AES-256</span>
+        <span class="pill"><span class="pill-dot"></span>Zero-Knowledge</span>
+        <span class="pill"><span class="pill-dot"></span>Open Source</span>
+        <span class="pill"><span class="pill-dot"></span>Nessun abbonamento</span>
+      </div>
+    </section>
+
+    <!-- DOWNLOAD CARDS -->
+    <section class="cards-section">
+      <div class="cards-grid">
+
+        <!-- iOS -->
+        <div class="card">
+          <div class="card-icon">🍎</div>
+          <div>
+            <div class="card-ext">.ipa</div>
+            <div class="card-title">iPhone & iPad</div>
+          </div>
+          <p class="card-desc">App nativa per iOS. Richiede l'installazione manuale tramite AltStore (sideloading), vedi le istruzioni qui sotto.</p>
+          <a href="/app.ipa" download class="btn btn-ghost">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 3v13M5 14l7 7 7-7"/><path d="M3 21h18"/></svg>
+            Scarica .ipa
+          </a>
+        </div>
+
+        <!-- WEB (CENTRO) -->
+        <div class="card card-featured">
+          <div class="featured-badge">⭐ CONSIGLIATA</div>
+          <div class="card-icon">🌐</div>
+          <div>
+            <div class="card-ext">pwa</div>
+            <div class="card-title">Web App</div>
+          </div>
+          <p class="card-desc">Sempre aggiornata, zero installazione. Aggiungila alla schermata Home del tuo dispositivo per un'esperienza da app nativa.</p>
+          <a href="https://i-miei-pensieri.web.app" class="btn btn-featured">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Apri nel Browser
+          </a>
+        </div>
+
+        <!-- ANDROID -->
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <div>
+            <div class="card-ext">.apk</div>
+            <div class="card-title">Android</div>
+          </div>
+          <p class="card-desc">App nativa per smartphone e tablet Android. Installazione diretta, nessun store necessario, segui le istruzioni qui sotto.</p>
+          <a href="/app.apk" download class="btn btn-ghost">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M12 3v13M5 14l7 7 7-7"/><path d="M3 21h18"/></svg>
+            Scarica .apk
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- INSTRUCTIONS ACCORDION -->
+    <section class="instructions">
+      <h2 class="section-title">Come installare</h2>
+      <p class="section-sub">Segui le istruzioni passo per passo per il tuo dispositivo.</p>
+
+      <div class="accordion">
+
+        <!-- WEB PWA -->
+        <div class="accordion-item" id="acc-web">
+          <button class="accordion-btn" onclick="toggle('acc-web')">
+            <div class="accordion-btn-left">
+              <div class="accordion-icon-wrap">🌐</div>
+              <div>
+                <div class="accordion-label">Web App (Consigliata)</div>
+                <div class="accordion-sublabel">iPhone, Android, PC — nessun file da scaricare</div>
+              </div>
+            </div>
+            <div class="accordion-arrow">⌄</div>
+          </button>
+          <div class="accordion-body">
+            <div class="steps">
+              <div class="step"><div class="step-num">1</div><div class="step-text">Visita <strong>i-miei-pensieri.web.app</strong> nel tuo browser.</div></div>
+              <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Su iPhone/iPad (Safari):</strong> tocca l'icona Condividi <code>⎋</code> → "Aggiungi alla schermata Home".</div></div>
+              <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Su Android (Chrome):</strong> tocca i tre puntini <code>⋮</code> → "Aggiungi alla schermata Home".</div></div>
+              <div class="step"><div class="step-num">4</div><div class="step-text">L'icona dell'app apparirà tra le tue app, pronta all'uso.</div></div>
+            </div>
+            <div class="tip-box">
+              <div class="tip-icon">💡</div>
+              <div>La Web App è sempre aggiornata automaticamente e non occupa spazio prezioso sul dispositivo. È la scelta migliore per la maggior parte degli utenti.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- IOS ALTSTORE -->
+        <div class="accordion-item" id="acc-ios">
+          <button class="accordion-btn" onclick="toggle('acc-ios')">
+            <div class="accordion-btn-left">
+              <div class="accordion-icon-wrap">🍎</div>
+              <div>
+                <div class="accordion-label">Installazione iOS tramite AltStore</div>
+                <div class="accordion-sublabel">iPhone & iPad · iOS 14 o superiore</div>
+              </div>
+            </div>
+            <div class="accordion-arrow">⌄</div>
+          </button>
+          <div class="accordion-body">
+            <p style="margin-bottom:12px">AltStore è lo strumento gratuito più semplice e sicuro per installare app non presenti su App Store (sideloading).</p>
+            <div class="steps">
+              <div class="step"><div class="step-num">1</div><div class="step-text">Installa <strong>AltStore</strong> dal sito ufficiale <a href="https://altstore.io" target="_blank" rel="noopener noreferrer" style="color:var(--accent-light)">altstore.io</a> seguendo la guida per il tuo sistema operativo (Mac/Windows).</div></div>
+              <div class="step"><div class="step-num">2</div><div class="step-text">Scarica il file <code>.ipa</code> usando il pulsante qui sopra e salvalo sul tuo iPhone (es. nell'app File).</div></div>
+              <div class="step"><div class="step-num">3</div><div class="step-text">Apri <strong>AltStore</strong> sul tuo iPhone → scheda <strong>"My Apps"</strong> → tocca <strong>+</strong> in alto a sinistra.</div></div>
+              <div class="step"><div class="step-num">4</div><div class="step-text">Seleziona il file <code>app.ipa</code> dalla cartella Download o File.</div></div>
+              <div class="step"><div class="step-num">5</div><div class="step-text">Inserisci il tuo Apple ID (serve solo per firmare localmente l'app, non condivide nessun dato).</div></div>
+              <div class="step"><div class="step-num">6</div><div class="step-text">L'app viene installata! Ricorda: dovrai rinnovare la firma tramite AltStore ogni <strong>7 giorni</strong>.</div></div>
+            </div>
+            <div class="tip-box">
+              <div class="tip-icon">💡</div>
+              <div>Tieni AltStore attivo in background e conesso alla stessa rete del tuo Mac/PC per il rinnovo automatico della firma settimanale.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANDROID APK -->
+        <div class="accordion-item" id="acc-android">
+          <button class="accordion-btn" onclick="toggle('acc-android')">
+            <div class="accordion-btn-left">
+              <div class="accordion-icon-wrap">🤖</div>
+              <div>
+                <div class="accordion-label">Installazione Android</div>
+                <div class="accordion-sublabel">Smartphone & Tablet · Android 7.0 o superiore</div>
+              </div>
+            </div>
+            <div class="accordion-arrow">⌄</div>
+          </button>
+          <div class="accordion-body">
+            <div class="steps">
+              <div class="step"><div class="step-num">1</div><div class="step-text">Scarica il file <code>app.apk</code> usando il pulsante qui sopra direttamente dal tuo smartphone Android.</div></div>
+              <div class="step"><div class="step-num">2</div><div class="step-text">Apri il file dalla notifica o dall'app <strong>Download/Archivio</strong>.</div></div>
+              <div class="step"><div class="step-num">3</div><div class="step-text">Se compare un avviso "Origini sconosciute non consentite", tocca <strong>Impostazioni</strong> → abilita <strong>"Consenti da questa fonte"</strong> per il tuo browser/Archivio.</div></div>
+              <div class="step"><div class="step-num">4</div><div class="step-text">Torna indietro e tocca <strong>Installa</strong>. In pochi secondi l'app sarà disponibile.</div></div>
+              <div class="step"><div class="step-num">5</div><div class="step-text">Accedi con il tuo account Google, imposta la tua password cassaforte e inizia a usarla!</div></div>
+            </div>
+            <div class="tip-box">
+              <div class="tip-icon">💡</div>
+              <div>Puoi riabilitare il blocco "Origini sconosciute" dopo l'installazione per mantenere la sicurezza del dispositivo.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- LEGAL DISCLAIMER -->
+    <section class="legal-section">
+      <div class="legal-box">
+        <div class="legal-icon">⚠️</div>
+        <div>
+          <div class="legal-title">Avvertenza Legale e Limitazione di Responsabilità</div>
+          <div class="legal-text">
+            I file .apk e .ipa sono forniti come strumenti software indipendenti per installazione manuale (<em>sideloading</em>). Lo sviluppatore e i soggetti a esso collegati declinano espressamente ogni responsabilità per qualsiasi danno al dispositivo, perdita di dati, violazione della garanzia del fabbricante, malfunzionamenti hardware o software, o qualsiasi altra conseguenza diretta o indiretta derivante dall'installazione di questi file al di fuori degli store ufficiali (Apple App Store e Google Play Store).<br><br>
+            L'utente si assume la piena e totale responsabilità derivante dall'utilizzo di strumenti di terze parti (incluso, a titolo esemplificativo, AltStore) per l'installazione su dispositivi iOS. L'installazione di file APK su dispositivi Android attraverso origini non ufficiali avviene esclusivamente a rischio e pericolo dell'utente.<br><br>
+            Il software non contiene codice malevolo, tuttavia, poiché il processo di installazione manuale aggira i sistemi di verifica ufficiali (es. Google Play Protect), l'utente rinuncia a qualsiasi pretesa nei confronti dello sviluppatore per i rischi ad esso connessi. Utilizzando questi file, l'utente dichiara di aver letto, compreso e accettato integralmente le presenti condizioni.
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2025 I miei Pensieri · <a href="https://i-miei-pensieri.web.app">Web App</a> · I tuoi dati sono protetti con crittografia end-to-end — nessuno può accedervi.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.75rem; opacity: 0.6;">Privacy &amp; GDPR: <a href="mailto:imieipensieri.privacy@gmail.com" style="color: var(--accent-light);">imieipensieri.privacy@gmail.com</a></p>
+  </footer>
+
+  <script>
+    function toggle(id) {
+      const item = document.getElementById(id);
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    }
+  </script>
+</body>
+</html>

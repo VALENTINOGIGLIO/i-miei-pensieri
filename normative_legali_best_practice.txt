@@ -1,0 +1,119 @@
+================================================================================
+NORMATIVE LEGALI E BEST PRACTICE PER L'APP "I MIEI PENSIERI"
+================================================================================
+
+Per un'applicazione mobile e web che tratta dati personali e potenzialmente 
+sensibili (come riflessioni personali, profili psicologici generati da IA e 
+geolocalizzazione), è fondamentale rispettare diverse normative internazionali 
+e le policy degli store digitali. 
+
+Di seguito la panoramica completa strutturata per categorie, includendo per 
+ciascuna una checklist pratica (obbligatoria o fortemente raccomandata) di 
+"cose da controllare".
+
+
+1. NORMATIVE SULLA PRIVACY (GDPR in Europa e CCPA in California)
+--------------------------------------------------------------------------------
+Queste sono le regole auree per la gestione e la protezione dei dati personali.
+
+* Informativa sulla Privacy (Privacy Policy):
+  Deve essere un documento legale, chiaro e accessibile prima della registrazione. 
+  Deve indicare chi è il Titolare del Trattamento, quali dati vengono raccolti, 
+  la base giuridica e con chi vengono condivisi.
+  [COSE DA CONTROLLARE]
+  [ ] Il link alla Privacy Policy è visibile nella schermata di registrazione?
+  [ ] L'informativa specifica esattamente quali dati finiscono su Firebase e quali 
+      su Google Gemini o MyMemory?
+  [ ] È spiegato in modo semplice (plain language) che l'app utilizza la 
+      crittografia End-to-End?
+
+* Privacy by Design e by Default:
+  L'app è in linea con le best practice grazie all'implementazione della 
+  Crittografia End-to-End (E2EE). I dati salvati sui server devono essere incomprensibili.
+  [COSE DA CONTROLLARE]
+  [ ] Il database Firebase Firestore è effettivamente inaccessibile in chiaro 
+      perfino dagli amministratori di sistema?
+  [ ] Vengono crittografati anche metadati sensibili (es. coordinate GPS) oltre 
+      al testo dei pensieri?
+
+* Consensi per Funzionalità Sensibili (IA e GPS):
+  [COSE DA CONTROLLARE]
+  [ ] I consensi per IA e GPS sono separati, modulari e MAI pre-spuntati?
+  [ ] L'utente può accettare il consenso in qualsiasi momento lo ritenga 
+      necessario (es. la prima volta che usa l'IA)?
+  [ ] L'utente può revocare il consenso con la stessa facilità con cui lo 
+      ha prestato (es. interruttore on/off nelle Impostazioni)?
+  [ ] Se l'utente rifiuta il consenso per l'IA, l'app principale funziona 
+      comunque senza limitazioni ingiustificate?
+
+* Diritti degli Interessati:
+  - Diritto all'Oblio e Accesso.
+  [COSE DA CONTROLLARE]
+  [ ] Esiste un pulsante "Elimina Account" funzionante e senza ostacoli?
+  [ ] L'eliminazione cancella l'utente da Firebase Auth E tutti i suoi 
+      documenti da Firestore?
+  [ ] Esiste una funzione "Esporta i miei dati" (es. in JSON o Testo)?
+
+* Gestione di Terze Parti e Trasferimento Dati:
+  [COSE DA CONTROLLARE]
+  [ ] Se l'utente attiva il "Traduttore Gratuito" (MyMemory), appare un avviso 
+      chiaro che i dati viaggeranno in chiaro senza E2EE?
+
+
+2. DIRETTIVA ePRIVACY (Cookie Law e Tracker SDK)
+--------------------------------------------------------------------------------
+Riguarda il tracciamento dei dispositivi, l'uso dei cookie e delle analytics.
+
+* Consenso Preventivo e Opt-out:
+  [COSE DA CONTROLLARE]
+  [ ] Se presenti SDK di tracking (Analytics, Crashlytics), viene mostrato un 
+      banner di consenso al primissimo avvio dell'app?
+  [ ] I tracker restano DISATTIVATI ("paused") finché l'utente non preme "Accetta"?
+  [ ] Nelle impostazioni è presente un toggle "Impostazioni Privacy / Tracciamento" 
+      per revocare o concedere il consenso successivamente?
+
+
+3. TERMINI DI SERVIZIO (ToS / EULA)
+--------------------------------------------------------------------------------
+Stabiliscono le regole d'uso del servizio e tutelano lo sviluppatore.
+
+* Limitazione di Responsabilità (Perdita Dati e BYOK):
+  [COSE DA CONTROLLARE]
+  [ ] L'utente deve spuntare una casella (o accettare esplicitamente) per 
+      confermare di aver capito che se perde la password perde i dati (Zero-Knowledge)?
+  [ ] È indicato che i costi derivanti dall'inserimento di una API Key personale 
+      di Gemini (BYOK) ricadono esclusivamente sull'utente?
+
+* Disclaimer Medico sull'IA:
+  [COSE DA CONTROLLARE]
+  [ ] È presente un avviso visibile (es. un piccolo badge o testo informativo) 
+      vicino ai risultati dell'IA psicologica che ricordi che "non è un parere medico"?
+
+
+4. LINEE GUIDA DEGLI STORE (Apple App Store e Google Play Store)
+--------------------------------------------------------------------------------
+Policy molto restrittive la cui violazione può causare la rimozione dell'app.
+
+* Requisiti di Sicurezza e Trasparenza:
+  [COSE DA CONTROLLARE]
+  [ ] Il pulsante "Elimina Account" è accessibile senza dover inviare email 
+      al supporto clienti (requisito fondamentale Apple)?
+  [ ] Se l'app genera risposte IA pubbliche o condivisibili, c'è un pulsante 
+      "Segnala contenuto"?
+  [ ] In Google Play Console, la sezione "Sicurezza dei dati" dichiara la 
+      crittografia in transito e a riposo?
+  [ ] (Solo iOS) Se usi IDFA per pubblicità, mostri il prompt ATT di sistema?
+
+
+5. BEST PRACTICE TECNICHE E DI SICUREZZA (Standard OWASP Mobile)
+--------------------------------------------------------------------------------
+Regole ingegneristiche (facoltative ma molto positive) per garantire sicurezza.
+
+* Secure Storage e Gestione Accessi:
+  [COSE DA CONTROLLARE]
+  [ ] Le chiavi AES locali e le API Key non sono salvate in localStorage se l'app 
+      gira su smartphone, ma usano plugin sicuri (es. Capacitor Secure Storage / Keychain)?
+  [ ] C'è un sistema di blocco dell'app (Lock Screen) con PIN o Biometria 
+      dopo un periodo di inattività (es. 5 minuti)?
+  [ ] Dopo "X" tentativi di sblocco falliti, l'app forza il logout?
+  [ ] Le chiamate alle API esterne utilizzano esclusivamente HTTPS (TLS 1.2 o superiore)?

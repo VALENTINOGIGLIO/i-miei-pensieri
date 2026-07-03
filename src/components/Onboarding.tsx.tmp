@@ -1,0 +1,99 @@
+  return (
+    <div className={`fixed inset-0 z-[100] bg-[var(--bg-base)] flex flex-col transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className="flex-1 overflow-y-auto p-6 sm:p-12 flex flex-col items-center justify-center">
+        {step === 1 ? (
+        <div className="max-w-2xl w-full flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 bg-blue-50 text-[var(--accent-warm)] rounded-2xl flex items-center justify-center shadow-sm">
+              <Info size={24} />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-semibold text-[var(--text-primary)] font-display tracking-tight">
+              Il Progetto
+            </h1>
+          </div>
+          
+          <div className="prose prose-zinc prose-base sm:prose-lg leading-relaxed text-[var(--text-secondary)]">
+            <p>
+              Viviamo in un mondo che va troppo veloce, bombardati da contenuti di pochi secondi che ci stanno distruggendo l'attenzione. Non c'è quasi più tempo per pensare. Avevo sempre sognato un'oasi, un luogo che ti desse un attimo di tranquillità, in cui puoi semplicemente fermarti e ascoltarti. Ma ascoltarti davvero.
+            </p>
+            <p>
+              Ecco perché qui sei spinto a usare la voce. Dover parlare ti costringe a strutturare il pensiero e il linguaggio nello stesso momento. Ti allena a dare forma a quello che hai dentro.
+            </p>
+            <p>
+              Qui l'IA non si limiterà a darti ragione: analizzerà le tue riflessioni e ti consiglierà libri affini, ma soprattutto testi oppositivi, che sfidano le tue convinzioni per aiutarti a costruire uno spirito critico indipendente, così da calibrare le misure con cui ti rapporti al mondo.
+            </p>
+            <p>
+              L'ho costruito per me, ma la mia più grande soddisfazione è sapere che, in mezzo a tanto rumore, qualcuno come te ha deciso di usare questo spazio per riprendersi il proprio tempo.
+            </p>
+          </div>
+          
+        </div>
+        ) : (
+        <div className="max-w-2xl w-full flex flex-col gap-8 animate-in fade-in slide-in-from-right-8 duration-500">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-12 h-12 bg-blue-50 text-[var(--accent-warm)] rounded-2xl flex items-center justify-center shadow-sm">
+              <Shield size={24} />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-semibold text-[var(--text-primary)] font-display tracking-tight">
+              Privacy e Condizioni
+            </h1>
+          </div>
+          
+          <div className="prose prose-zinc prose-base sm:prose-lg leading-relaxed text-[var(--text-secondary)]">
+            <p>
+              Questa applicazione utilizza la crittografia End-to-End. I tuoi dati sono al sicuro sul tuo dispositivo e protetti da una password.
+            </p>
+            <p>
+              Per offrirti le analisi e i suggerimenti, l'app si avvale di Intelligenze Artificiali (come Google Gemini). I tuoi pensieri vengono inviati ai loro server esclusivamente nel momento in cui richiedi un'analisi e non vengono mai utilizzati per addestrare modelli pubblici.
+            </p>
+            <p>
+              Per utilizzare appieno l'app devi accettare i nostri <button onClick={() => window.dispatchEvent(new Event('open_tos_modal'))} className="underline text-[var(--accent-warm)]">Termini di Servizio</button> e l'<button onClick={() => window.dispatchEvent(new Event('open_privacy_modal'))} className="underline text-[var(--accent-warm)]">Informativa sulla Privacy</button>. 
+              Puoi anche saltare questo passaggio e accettare in seguito solo quando userai le singole funzionalità.
+            </p>
+            
+            <label className="flex items-center gap-3 mt-6 p-4 border border-[var(--border-color)] rounded-xl bg-[var(--bg-secondary)] cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={isAgeChecked} 
+                onChange={(e) => setIsAgeChecked(e.target.checked)}
+                className="w-5 h-5 accent-[var(--accent-warm)] shrink-0"
+              />
+              <span className="text-sm font-medium text-[var(--text-primary)] leading-tight">
+                Dichiaro di avere almeno 16 anni di età, come richiesto dalle normative sulla privacy (GDPR).
+              </span>
+            </label>
+          </div>
+        </div>
+        )}
+      </div>
+
+      <div className="p-6 sm:p-12 flex justify-center w-full max-w-2xl mx-auto flex-col sm:flex-row gap-4">
+        {step === 1 ? (
+          <button
+            onClick={handleNext}
+            className="w-full flex items-center justify-center gap-3 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-base)] py-4 px-8 rounded-2xl font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
+          >
+            Avanti <ArrowRight size={20} />
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => handleFinish(false)}
+              className="w-full sm:w-1/3 flex items-center justify-center gap-3 bg-[var(--bg-secondary)] text-[var(--text-primary)] border-2 border-[var(--border-color)] hover:bg-[var(--bg-hover)] py-4 px-8 rounded-2xl font-medium transition-all active:scale-95"
+            >
+              Salta per ora
+            </button>
+            <button
+              onClick={() => handleFinish(true)}
+              disabled={!isAgeChecked}
+              className={`w-full sm:w-2/3 flex items-center justify-center gap-3 py-4 px-8 rounded-2xl font-medium transition-all active:scale-95 ${isAgeChecked ? 'bg-[var(--accent-warm)] hover:opacity-90 text-white shadow-md hover:shadow-lg' : 'bg-[var(--text-muted)] text-[var(--bg-base)] cursor-not-allowed opacity-50'}`}
+            >
+              Accetto Tutto
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

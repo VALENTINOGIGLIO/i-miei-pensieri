@@ -1,0 +1,14 @@
+{
+  "appId": "com.imieipensieri.app",
+  "appName": "I Miei Pensieri",
+  "webDir": "dist",
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": false,
+      "providers": ["google.com"]
+    }
+  },
+  "ios": {
+    "scrollEnabled": false
+  }
+}

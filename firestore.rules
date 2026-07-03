@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidUser(data) {
+      return data.keys().size() == 0 || 
+             data.keys().hasOnly(['deletedAt', 'pbkdf2Iterations']) || 
+             data.keys().hasOnly(['pbkdf2Iterations']) || 
+             data.keys().hasOnly(['deletedAt']);
+    }
+
+    function isValidThought(data) {
+      return data.keys().hasAll(['ciphertext', 'iv', 'timestamp'])
+        && data.keys().size() == 3
+        && data.ciphertext is string && data.ciphertext.size() <= 1048576
+        && data.iv is string && data.iv.size() <= 128
+        && data.timestamp is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      
+      match /thoughts/{thoughtId} {
+        allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+        allow list: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+        allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidId(thoughtId) && isValidThought(incoming());
+        allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidId(thoughtId) && isValidThought(incoming());
+        allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidId(thoughtId);
+      }
+    }
+  }
+}

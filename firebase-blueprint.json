@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile",
+      "type": "object",
+      "properties": {
+      }
+    },
+    "Thought": {
+      "title": "Thought",
+      "description": "An encrypted thought",
+      "type": "object",
+      "properties": {
+        "ciphertext": {
+          "type": "string"
+        },
+        "iv": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "number"
+        }
+      },
+      "required": ["ciphertext", "iv", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User document"
+    },
+    "/users/{userId}/thoughts/{thoughtId}": {
+      "schema": { "$ref": "#/entities/Thought" },
+      "description": "Encrypted thoughts"
+    }
+  }
+}

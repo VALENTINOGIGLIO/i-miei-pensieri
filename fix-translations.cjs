@@ -1,0 +1,194 @@
+const fs = require('fs');
+
+const ts = `// src/lib/translations.ts
+export type Language = 'it' | 'en';
+
+export const translations = {
+  it: {
+    "app.booting": "Avvio dell'ambiente sicuro...",
+    "app.unlock": "Sblocca",
+    "app.logout": "Esci",
+    "app.yourMind": "La tua Mente",
+    "app.panicMode": "Modalità Panico",
+    "app.analyzing": "Analisi...",
+    "app.change": "Cambia",
+    "app.noThoughts": "Non ci sono ancora pensieri registrati. Usa il microfono per iniziare.",
+    "app.limitedFeatures": "Funzionalità Limitate",
+    "app.privacyRejected": "Hai rifiutato l'Informativa sulla Privacy, pertanto le funzionalità di analisi IA sono state disabilitate.",
+    "app.acceptTermsToReactivate": "Per riattivarle, devi prima accettare i termini.",
+    "app.timeCapsule": "Capsula del Tempo",
+    "app.settings": "Impostazioni",
+    "app.theme": "Tema",
+    "app.light": "Chiaro",
+    "app.dark": "Scuro",
+    "app.language": "Lingua",
+    "app.additionalFeatures": "Funzionalità Aggiuntive",
+    "app.customizeExperience": "Personalizza la tua esperienza",
+    "app.apiKey": "Chiave API (Gemini)",
+    "app.configured": "Configurata",
+    "app.notConfigured": "Non configurata",
+    "app.securityAndAccount": "Sicurezza e Account",
+    "app.manageData": "Gestisci dati ed esportazioni",
+    "app.exportThoughts": "Esporta Pensieri",
+    "app.downloadBackup": "Scarica un backup locale di tutti i tuoi dati crittografati.",
+    "app.dangerZone": "Zona Pericolosa",
+    "app.deleteAccountBtn": "Elimina Account Definitivamente",
+    "app.translating": "Traduzione in corso...",
+    "app.translateThoughtsTitle": "Traduci i tuoi pensieri",
+    "app.useAi": "Usa Intelligenza Artificiale",
+    "app.translationCompleted": "Traduzione completata!",
+    "app.translationError": "Errore durante la traduzione.",
+    "app.deleteError": "Errore durante l'eliminazione: {{message}}. Se l'errore persiste, esegui di nuovo il login e riprova.",
+
+    "password.vaultTitle": "Cassaforte",
+    "password.vaultSubtitle": "Inserisci la tua password di crittografia.",
+    "password.vaultSubtitleBiometric": "Usa il riconoscimento biometrico per sbloccare i tuoi pensieri.",
+    "password.vaultSubtitlePassword": "Inserisci la tua password per sbloccare i tuoi pensieri.",
+    "password.vaultUnlockBiometric": "Sblocca con Face ID",
+    "password.vaultUsePassword": "Usa password",
+    "password.vaultUseFaceId": "← Usa Face ID",
+    "password.vaultPlaceholder": "Password Cassaforte",
+    "password.vaultUnlock": "Sblocca Dati",
+    "password.vaultEnableBiometric": "Abilita Face ID / Impronta",
+    "password.vaultEnableBiometricDesc": "Non dovrai più digitare la password",
+    "password.vaultErrorEmpty": "Inserisci la password della cassaforte.",
+    "password.vaultErrorNotAuth": "Utente non autenticato. Ricarica la pagina.",
+    "password.vaultErrorBiometric": "Autenticazione biometrica fallita. Inserisci la password.",
+    "password.dataLossWarning": "Attenzione: l'app usa Crittografia End-to-End. Se perdi questa password, PERDERAI PER SEMPRE i tuoi dati. Non esiste modo di recuperarla.",
+
+    "apiKey.title": "Google AI Studio API Key",
+    "apiKey.description1": "Questa app è progettata con un'architettura \"Bring Your Own Key\".",
+    "apiKey.description2": "Per usare le funzionalità avanzate (analisi psicologica, tag automatici, traduzioni AI) devi inserire la tua chiave API personale di Google Gemini.",
+    "apiKey.privacy": "La chiave verrà crittografata con la tua password e salvata in modo sicuro.",
+    "apiKey.placeholder": "Incolla qui la tua API Key...",
+    "apiKey.getLink": "Ottieni una chiave gratuita su Google AI Studio",
+    "apiKey.save": "Salva e Continua",
+    "apiKey.billingWarning": "La chiave API permette l'uso di modelli avanzati a tue spese (se superi la quota gratuita). Mantienila segreta.",
+
+    "nav.thoughts": "Pensieri",
+    "nav.analysis": "Analisi",
+    "nav.settings": "Impostazioni",
+
+    "stats.title": "Statistiche",
+    "stats.totalThoughts": "Pensieri Totali",
+    "stats.thisWeek": "Questa Settimana",
+    "stats.avgDepth": "Profondità Media",
+    "stats.wordCount": "Parole Scritte",
+    "stats.mostUsedTags": "Tag più frequenti",
+    "stats.noTags": "Nessun tag disponibile.",
+    "stats.moodSummaryTitle": "Sintesi Emotiva",
+    "stats.moodSummaryDesc": "Questa sintesi analizza i tuoi pensieri per identificare lo stato emotivo generale.",
+    "stats.moodPlaceholder": "La tua sintesi emotiva apparirà qui man mano che registrerai nuovi pensieri...",
+    "stats.innerConnectionTitle": "Connessione Interiore",
+    "stats.innerConnectionDesc": "Misura quanto sei in contatto con te stesso, basandosi sulla costanza e profondità delle tue riflessioni.",
+    "stats.veryHigh": "Molto Alta",
+    "stats.good": "Buona",
+    "stats.needsCultivation": "Da coltivare",
+    "stats.frequencyTitle": "Frequenza di riflessione",
+    "stats.frequencyDesc": "Analizza la regolarità con cui prendi del tempo per te stesso.",
+    "stats.intensityTitle": "Intensità dell'analisi",
+
+    "profile.greeting": "Ciao",
+    "profile.yourIdentity": "Identità",
+    "profile.analyzeProfile": "Analizza Profilo",
+    "profile.noAnalysis": "Le informazioni sul tuo profilo psicologico e filosofico verranno elaborate man mano che registri i tuoi pensieri e le tue riflessioni profonde.",
+    "profile.loading": "Analisi in corso...",
+    "profile.error": "Errore durante l'analisi. Riprova più tardi.",
+
+    "thoughtCard.editError": "Errore durante il salvataggio della modifica.",
+    "thoughtCard.editWithVoice": "Modifica con la voce",
+    "thoughtCard.deleteThought": "Elimina pensiero",
+    "thoughtCard.confirmDelete": "Vuoi eliminare questo pensiero?",
+    "thoughtCard.cancel": "Annulla",
+    "thoughtCard.deleteBtn": "Elimina",
+    "thoughtCard.youAreSaying": "Stai dicendo:",
+    "thoughtCard.sealedInCapsule": "Sigillato nella Capsula del Tempo",
+    "thoughtCard.willOpenOn": "Si aprirà il",
+    "thoughtCard.openInMaps": "Apri in Maps",
+    "thoughtCard.location": "Posizione",
+
+    "connection.offline": "Connessione debole o assente. I pensieri verranno salvati in locale.",
+    "connection.online": "Sei tornato online. Sincronizzazione in corso...",
+    
+    "onboardingWelcome": "Benvenuto",
+    "onboardingSelectLanguage": "Choose your language to continue",
+    "onboardingTitle1": "Il Progetto",
+    "onboardingP1_1": "Viviamo in un mondo che va troppo veloce, bombardati da contenuti di pochi secondi che stanno distruggendo la nostra soglia di attenzione. Non c'è quasi più tempo per pensare. Ho sempre sognato un'oasi, un luogo che ti dia un attimo di tregua, in cui puoi semplicemente fermarti e ascoltarti. Ma ascoltarti davvero.",
+    "onboardingP1_2": "Per questo motivo, qui sei incoraggiato a usare la voce. Dover parlare ti obbliga a strutturare pensiero e linguaggio allo stesso tempo. Ti allena a dare una forma a ciò che hai dentro.",
+    "onboardingP1_3": "Qui, l'IA non ti darà semplicemente ragione: analizzerà le tue riflessioni e ti consiglierà libri affini, ma soprattutto testi opposti, che sfidino le tue convinzioni per aiutarti a costruire un senso critico indipendente, affinché tu possa calibrare i metri con cui ti relazioni al mondo.",
+    "onboardingP1_4": "L'ho costruita per me, ma la mia più grande soddisfazione è sapere che, in mezzo a tanto rumore, qualcuno come te ha deciso di usare questo spazio per riprendersi il suo tempo.",
+    "onboardingTitle2": "Privacy e Condizioni",
+    "onboardingP2_1": "Questa applicazione usa la crittografia End-to-End. I tuoi dati sono al sicuro sul tuo dispositivo e protetti da una password.",
+    "onboardingP2_2": "Per offrirti analisi e suggerimenti, l'app usa l'Intelligenza Artificiale (come Google Gemini). I tuoi pensieri vengono inviati ai loro server esclusivamente quando richiedi un'analisi e non vengono mai usati per addestrare modelli pubblici.",
+    "onboardingP2_3_1": "Per usare l'app al massimo delle sue potenzialità, devi accettare i nostri ",
+    "onboardingP2_3_TOS": "Termini di Servizio",
+    "onboardingP2_3_2": " e la ",
+    "onboardingP2_3_PRIVACY": "Privacy Policy",
+    "onboardingP2_3_3": ". Puoi anche saltare questo passaggio e accettare più tardi solo usando specifiche funzionalità.",
+    "onboardingAgeLabel": "Dichiaro di avere almeno 16 anni, come richiesto dalle normative privacy (GDPR).",
+    "onboardingPrivacyLabel": "Accetto i Termini di Servizio e la Privacy Policy di base",
+    "onboardingAiLabel": "Acconsento all'uso dell'IA per l'analisi dei pensieri (Opzionale)",
+    "onboardingGpsLabel": "Acconsento all'uso della Geolocalizzazione (Opzionale)",
+    "onboardingNext": "Avanti",
+    "onboardingSkip": "Salta per ora",
+    "onboardingAccept": "Accetta Tutto",
+
+    "legalPrivacyTitle": "Informativa sulla Privacy",
+    "legalTosTitle": "Termini di Servizio",
+    "legalUnderstand": "Ho capito",
+    "legalRejectAiGps": "Rifiuta AI & GPS",
+    
+    "legalPrivacy1Title": "1. Architettura \"Zero-Knowledge\" (E2EE)",
+    "legalPrivacy1Text": "\"I miei Pensieri\" è costruita sul principio della Privacy by Design. Tutti i tuoi dati (testi, registrazioni vocali, chiavi API) vengono crittografati localmente sul tuo dispositivo tramite lo standard AES-GCM a 256 bit. La chiave di crittografia è derivata univocamente dalla tua password (tramite PBKDF2). Questo significa che nessuno, nemmeno noi sviluppatori, ha la possibilità tecnica di decifrare o leggere i tuoi pensieri. Su Firestore salviamo solo stringhe incomprensibili.",
+    "legalPrivacy2Title": "2. Integrazione IA e Dati Sensibili",
+    "legalPrivacy2Text": "Se scegli di attivare le funzioni di Intelligenza Artificiale (come le \"Frasi ispirazionali\" o \"l'Analisi psicologica\"), i tuoi pensieri verranno decifrati temporaneamente sul tuo dispositivo e inviati alle API di Google Gemini tramite HTTPS. Google processa i dati per generare la risposta ma non li usa per addestrare i propri modelli pubblici (come da policy Google Cloud Enterprise/AI Studio).",
+    "legalPrivacy2WarningLabel": "Avvertenza per il traduttore gratuito:",
+    "legalPrivacy2WarningText": " Se usi l'opzione \"Usa Traduttore Gratuito\", la crittografia E2EE viene meno. I testi verranno inviati in chiaro all'API di MyMemory.",
+    "legalPrivacy3Title": "3. Geolocalizzazione",
+    "legalPrivacy3Text": "Se abiliti la geolocalizzazione, le coordinate GPS verranno associate ai tuoi pensieri e verranno anch'esse crittografate localmente prima del salvataggio. Non tracciamo i tuoi spostamenti in tempo reale.",
+    
+    "legalTos1Title": "1. Accettazione dei Termini",
+    "legalTos1Text": "L'accesso e l'utilizzo dell'applicazione implicano l'accettazione incondizionata dei presenti Termini. Qualora non fossi d'accordo, sei invitato a non utilizzare il servizio.",
+    "legalTos2Title": "2. Limitazione di Responsabilità",
+    "legalTos2Text": "IL SERVIZIO È FORNITO \"COSÌ COM'È\", SENZA ALCUNA GARANZIA DI ALCUN TIPO, ESPLICITA O IMPLICITA. In nessun caso il creatore dell'applicazione potrà essere ritenuto responsabile per qualsiasi reclamo, danno, perdita di Dati (a causa dello smarrimento della \"Password Cassaforte\"), furto o utilizzo abusivo della tua API Key di Google AI Studio (in caso di password debole o dispositivo compromesso).",
+    "legalTos3Title": "3. Sicurezza e Password",
+    "legalTos3Text": "Trattandosi di un'architettura Zero-Knowledge, sei l'unico responsabile della custodia e della memorizzazione della tua \"Password Cassaforte\". Non esistono procedure di recupero: la perdita della password comporta la perdita definitiva dei Dati.",
+    "legalTos4Title": "4. API Key di Terze Parti (Modello BYOK)",
+    "legalTos4Text": "L'applicazione consente l'inserimento opzionale di una chiave API gratuita fornita da Google (Google AI Studio) per le funzioni di intelligenza artificiale. Inserendo tale chiave (Bring Your Own Key), sei tenuto a rispettare i Termini di Servizio di Google. Sei l'unico responsabile del superamento delle quote, della fatturazione, degli eventuali addebiti generati e della protezione della tua chiave. L'applicazione crittografa la chiave API (con crittografia Zero-Knowledge) e la archivia sui database cloud in modo inaccessibile allo sviluppatore.",
+    "legalTos5Title": "5. Uso del Microfono",
+    "legalTos5Text": "Il servizio di trascrizione vocale avviene tramite la Web Speech API del tuo browser e sistema operativo. Nessun dato audio viene memorizzato dai nostri server.",
+    "legalTos6Title": "6. Contatti",
+    "legalTos6Text": "Per qualsiasi domanda o controversia in merito ai presenti Termini, contattaci all'indirizzo:"
+  },
+  en: {
+    // Faccio fallback all'italiano per evitare duplicazioni inutili per ora, la TS types sono dettati da "it"
+  }
+} as const;
+
+export type TranslationKey = keyof typeof translations.it;
+
+export function detectLanguage(): Language {
+  const nav = navigator.language || (navigator as any).userLanguage || 'it';
+  const code = nav.split('-')[0].toLowerCase();
+  return code === 'en' ? 'en' : 'it'; // default to Italian for everything else
+}
+
+export function getLanguage(): Language {
+  const stored = localStorage.getItem('app_language');
+  if (stored === 'en' || stored === 'it') return stored;
+  if (stored === 'auto' || !stored) return detectLanguage();
+  return 'it';
+}
+
+export function t(key: TranslationKey, lang: Language, replacements?: Record<string, string>): string {
+  let str = (translations[lang] as any)[key] ?? (translations['it'] as any)[key] ?? key;
+  if (replacements) {
+    Object.entries(replacements).forEach(([k, v]) => {
+      str = str.replace(\`{\${k}}\`, v);
+    });
+  }
+  return str;
+}
+`;
+
+fs.writeFileSync('src/lib/translations.ts', ts);

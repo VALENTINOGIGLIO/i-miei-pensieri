@@ -1,0 +1,10 @@
+{
+  "name": "I miei Pensieri",
+  "description": "Un'app per registrare rapidamente pensieri vocali, riordinarli e memorizzarli grazie all'Intelligenza Artificiale.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
