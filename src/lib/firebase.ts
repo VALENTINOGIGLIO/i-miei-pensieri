@@ -3,12 +3,12 @@ import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, Goo
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyA5cgwDmRnuA3Qm1_C88vzgi7cwDPz4jik",
+  authDomain: "i-miei-pensieri.web.app",
+  projectId: "mythic-cedar-z6tp2",
+  storageBucket: "mythic-cedar-z6tp2.firebasestorage.app",
+  messagingSenderId: "732185655993",
+  appId: "1:732185655993:web:e3183beacbfed5c6a8f968"
 };
 
 const app = initializeApp(firebaseConfig);
