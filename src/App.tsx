@@ -620,7 +620,7 @@ export default function App() {
                      </div>
                      <div>
                        <h3 className="font-medium text-[var(--text-primary)]">{t('app.theme')}</h3>
-                       <p className="text-sm text-[var(--text-secondary)]">{theme === 'light' ? "{t('app.light')}" : "{t('app.dark')}"}</p>
+                       <p className="text-sm text-[var(--text-secondary)]">{theme === 'light' ? t('app.light') : t('app.dark')}</p>
                      </div>
                    </div>
                    <ChevronRight size={20} className="text-[var(--text-tertiary)]" />
@@ -688,7 +688,7 @@ export default function App() {
                      </div>
                      <div>
                        <h3 className="font-medium text-[var(--text-primary)]">{t('app.apiKey')}</h3>
-                       <p className="text-sm text-[var(--text-secondary)]">{apiKey ? "{t('app.configured')}" : "{t('app.notConfigured')}"}</p>
+                       <p className="text-sm text-[var(--text-secondary)]">{apiKey ? t('app.configured') : t('app.notConfigured')}</p>
                      </div>
                    </div>
                    <ChevronRight size={20} className="text-[var(--text-tertiary)]" />
@@ -856,15 +856,15 @@ export default function App() {
                   <div className="space-y-4 overflow-y-auto pr-2 pb-2">
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Frasi Ispiratrici</span>
-                        <span className="text-sm text-[var(--text-secondary)]">L'IA genera spunti di riflessione basati sui tuoi pensieri</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.inspiringPhrases')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.inspiringPhrasesDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enablePrompts} onChange={e => setEnablePrompts(e.target.checked)} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Analisi Psicologica IA</span>
-                        <span className="text-sm text-[var(--text-secondary)]">L'IA delinea un profilo personale basato sui tuoi pensieri</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.aiAnalysis')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.aiAnalysisDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableAiAnalysis} onChange={e => {
                         if (e.target.checked && localStorage.getItem('privacy_accepted_v2') === 'false') {
@@ -876,22 +876,22 @@ export default function App() {
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Statistiche Avanzate</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Grafici avanzati su produttività e tag</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.advancedStats')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.advancedStatsDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableAdvancedStats} onChange={e => setEnableAdvancedStats(e.target.checked)} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Connessione Interiore</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Indicatore del tuo livello di mindfulness e riflessione</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.innerConnection')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.innerConnectionDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableInnerConnection} onChange={e => setEnableInnerConnection(e.target.checked)} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Riepilogo Umore</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Analisi mensile del sentiment dei tuoi pensieri</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.moodSummary')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.moodSummaryDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableMoodSummary} onChange={e => {setEnableMoodSummary(e.target.checked); localStorage.setItem('enableMoodSummary', String(e.target.checked));}} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
@@ -900,22 +900,22 @@ export default function App() {
                     
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Modalità Panico</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Aggiunge un tasto rapido per offuscare i pensieri sullo schermo</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.panicMode')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.panicModeDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enablePanicMode} onChange={e => {setEnablePanicMode(e.target.checked); localStorage.setItem('enablePanicMode', String(e.target.checked));}} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Pergamena a Tempo</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Ti permette di impostare una data di sblocco futura per i pensieri</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.timeCapsule')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.timeCapsuleDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableTimeCapsule} onChange={e => {setEnableTimeCapsule(e.target.checked); localStorage.setItem('enableTimeCapsule', String(e.target.checked));}} className="w-6 h-6 rounded-md accent-[var(--accent-warm)]" />
                     </label>
                     <label className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
                       <div className="flex-1 pr-4">
-                        <span className="block font-medium text-[var(--text-primary)]">Geolocalizzazione Pensieri</span>
-                        <span className="text-sm text-[var(--text-secondary)]">Associa automaticamente la tua posizione attuale quando registri</span>
+                        <span className="block font-medium text-[var(--text-primary)]">{t('features.location')}</span>
+                        <span className="text-sm text-[var(--text-secondary)]">{t('features.locationDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableLocation} onChange={e => {
                         if (e.target.checked && localStorage.getItem('privacy_accepted_v2') === 'false') {

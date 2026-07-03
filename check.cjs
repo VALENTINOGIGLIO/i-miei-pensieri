@@ -1,0 +1,17 @@
+const puppeteer = require('puppeteer');
+
+(async () => {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  
+  page.on('console', msg => {
+    if (msg.type() === 'error') console.log('BROWSER ERROR:', msg.text());
+  });
+  page.on('pageerror', error => {
+    console.log('PAGE ERROR:', error.message);
+  });
+  
+  await page.goto('https://i-miei-pensieri.web.app/', { waitUntil: 'networkidle0' });
+  await page.screenshot({ path: 'screenshot.png' });
+  await browser.close();
+})();

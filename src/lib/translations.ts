@@ -218,7 +218,24 @@ export const translations = {
     "legalTos5Title": "5. Uso del Microfono",
     "legalTos5Text": "Il servizio di trascrizione vocale avviene tramite la Web Speech API del tuo browser e sistema operativo. Nessun dato audio viene memorizzato dai nostri server.",
     "legalTos6Title": "6. Contatti",
-    "legalTos6Text": "Per qualsiasi domanda o controversia in merito ai presenti Termini, contattaci all'indirizzo:"
+    "legalTos6Text": "Per qualsiasi domanda o controversia in merito ai presenti Termini, contattaci all'indirizzo:",
+
+    "features.inspiringPhrases": "Frasi Ispiratrici",
+    "features.inspiringPhrasesDesc": "L'IA genera spunti di riflessione basati sui tuoi pensieri",
+    "features.aiAnalysis": "Analisi Psicologica IA",
+    "features.aiAnalysisDesc": "L'IA delinea un profilo personale basato sui tuoi pensieri",
+    "features.advancedStats": "Statistiche Avanzate",
+    "features.advancedStatsDesc": "Grafici avanzati su produttività e tag",
+    "features.innerConnection": "Connessione Interiore",
+    "features.innerConnectionDesc": "Indicatore del tuo livello di mindfulness e riflessione",
+    "features.moodSummary": "Riepilogo Umore",
+    "features.moodSummaryDesc": "Analisi mensile del sentiment dei tuoi pensieri",
+    "features.panicMode": "Modalità Panico",
+    "features.panicModeDesc": "Aggiunge un tasto rapido per offuscare i pensieri sullo schermo",
+    "features.timeCapsule": "Pergamena a Tempo",
+    "features.timeCapsuleDesc": "Ti permette di impostare una data di sblocco futura per i pensieri",
+    "features.location": "Geolocalizzazione Pensieri",
+    "features.locationDesc": "Associa automaticamente la tua posizione attuale quando registri"
   },
   en: {}
 } as const;

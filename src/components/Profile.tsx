@@ -6,6 +6,8 @@ import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import BookMarked from "lucide-react/dist/esm/icons/book-marked";
 import Compass from "lucide-react/dist/esm/icons/compass";
 import Markdown from "react-markdown";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import Download from "lucide-react/dist/esm/icons/download";
 import X from "lucide-react/dist/esm/icons/x";
 interface ProfileProps {
@@ -32,11 +34,6 @@ const handleExport = async () => {
     
     setIsLoading(true);
     try {
-      // Import JSZip dynamically from ESM CDN to avoid Vite/Rollup build hangs
-      // @ts-ignore
-      const JSZip = (await import('https://esm.sh/jszip@3.10.1')).default;
-      // @ts-ignore
-      const { saveAs } = await import('https://esm.sh/file-saver@2.0.5');
       
       const zip = new JSZip();
     const thoughtsFolder = zip.folder("Pensieri");

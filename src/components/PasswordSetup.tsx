@@ -248,7 +248,7 @@ export function PasswordSetup({ onKeyDerived }: { onKeyDerived: (key: CryptoKey)
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password {t('password.vault')}"
+                placeholder={`Password ${t('password.vault')}`}
                 className="w-full px-4 py-3 pr-12 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] focus:border-[var(--accent-warm)] focus:ring-2 focus:ring-[var(--accent-warm)]/30 outline-none transition-all text-[var(--text-primary)] font-mono text-base"
                 disabled={loading}
                 autoComplete="current-password"
