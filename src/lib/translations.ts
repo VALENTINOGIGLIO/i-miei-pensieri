@@ -235,7 +235,8 @@ export const translations = {
     "features.timeCapsule": "Pergamena a Tempo",
     "features.timeCapsuleDesc": "Ti permette di impostare una data di sblocco futura per i pensieri",
     "features.location": "Geolocalizzazione Pensieri",
-    "features.locationDesc": "Associa automaticamente la tua posizione attuale quando registri"
+    "features.locationDesc": "Associa automaticamente la tua posizione attuale quando registri",
+    "app.privacyAndTerms": "Privacy & Termini di Servizio"
   },
   en: {
     "app.booting": "Starting secure environment...",

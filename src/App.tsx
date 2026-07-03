@@ -36,6 +36,7 @@ import { ConnectionIndicator } from './components/ConnectionIndicator';
 import { Profile } from './components/Profile';
 import { LandingPage } from './components/LandingPage';
 import { useLanguage } from './contexts/LanguageContext';
+import { RenameOldThoughts } from './components/RenameOldThoughts';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -61,7 +62,7 @@ export default function App() {
   const [enablePrompts, setEnablePrompts] = useState(() => localStorage.getItem("enablePrompts") === "true");
   const [enableAdvancedStats, setEnableAdvancedStats] = useState(() => {
     const saved = localStorage.getItem('enableAdvancedStats');
-    return saved !== null ? saved === 'true' : false;
+    return saved !== null ? saved === 'true' : true;
   });
   const [enableInnerConnection, setEnableInnerConnection] = useState(() => {
     const saved = localStorage.getItem('enableInnerConnection');
@@ -69,7 +70,7 @@ export default function App() {
   });
   const [enableMoodSummary, setEnableMoodSummary] = useState(() => {
     const saved = localStorage.getItem('enableMoodSummary');
-    return saved !== null ? saved === 'true' : false;
+    return saved !== null ? saved === 'true' : true;
   });
   const [enableAiAnalysis, setEnableAiAnalysis] = useState(() => {
     const saved = localStorage.getItem('enableAiAnalysis');
@@ -259,7 +260,9 @@ export default function App() {
     setIsProcessing(true);
     setProcessError(null);
     try {
-      let aiResult = { title: "Pensiero Veloce", content: transcript.trim(), tags: ["riflessione"], depth: 5, category: "Altro" };
+      let defaultTitle = transcript.trim().split(' ').slice(0, 5).join(' ');
+      if (transcript.trim().split(' ').length > 5) defaultTitle += '...';
+      let aiResult = { title: defaultTitle, content: transcript.trim(), tags: ["riflessione"], depth: 5, category: "Altro" };
       
       if (apiKey) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
@@ -271,8 +274,15 @@ export default function App() {
           })
         });
         const data = await res.json();
-        const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (textResp) aiResult = JSON.parse(textResp);
+        let textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (textResp) {
+          const startIdx = textResp.indexOf('{');
+          const endIdx = textResp.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1) {
+            textResp = textResp.substring(startIdx, endIdx + 1);
+          }
+          aiResult = JSON.parse(textResp);
+        }
       }
 
       let locationObj = undefined;
@@ -735,6 +745,8 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                <RenameOldThoughts user={user} cryptoKey={cryptoKey} apiKey={apiKey} />
 
                 {/* ─── ZONA PERICOLOSA: Elimina Account ─── */}
                 <div className="mt-2 border-2 border-red-500/30 rounded-2xl overflow-hidden bg-red-500/5">
