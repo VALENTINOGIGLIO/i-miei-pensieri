@@ -9,6 +9,15 @@ import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
 import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
 
+// Componente SVG per il logo Android
+const AndroidIcon = ({ size = 24, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414Z" fill="currentColor"/>
+    <path d="M6.46513 15.3414C6.46513 15.3414 6.46513 15.3414 6.46513 15.3414C6.46513 15.3414 6.46513 15.3414 6.46513 15.3414Z" fill="currentColor"/>
+    <path d="M17.2001 7.7335L19.2938 4.10864C19.4678 3.80665 19.3639 3.42168 19.062 3.24773C18.76 3.07379 18.375 3.17772 18.201 3.47971L16.0357 7.22941C14.7797 6.64356 13.4079 6.30908 11.9682 6.30908C10.5284 6.30908 9.15652 6.64356 7.90048 7.22941L5.73523 3.47971C5.56128 3.17772 5.17631 3.07379 4.87433 3.24773C4.57234 3.42168 4.46841 3.80665 4.64236 4.10864L6.73602 7.7335C3.39806 9.54441 1.13459 13.0456 1.01025 17.1593H22.9262C22.8018 13.0456 20.5383 9.54441 17.2001 7.7335ZM6.46513 13.7371C5.81156 13.7371 5.28186 13.2074 5.28186 12.5539C5.28186 11.9003 5.81156 11.3706 6.46513 11.3706C7.1187 11.3706 7.6484 11.9003 7.6484 12.5539C7.6484 13.2074 7.1187 13.7371 6.46513 13.7371ZM17.523 13.7371C16.8694 13.7371 16.3397 13.2074 16.3397 12.5539C16.3397 11.9003 16.8694 11.3706 17.523 11.3706C18.1766 11.3706 18.7063 11.9003 18.7063 12.5539C18.7063 13.2074 18.1766 13.7371 17.523 13.7371Z" fill="currentColor"/>
+  </svg>
+);
+
 export function LandingPage() {
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
 
@@ -32,29 +41,121 @@ export function LandingPage() {
           </p>
         </div>
 
-        {/* Web App Options */}
-        <div className="px-6 pb-16 max-w-xl mx-auto w-full">
-          {/* Web App Card */}
-          <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--accent-warm)] rounded-3xl p-8 flex flex-col items-center text-center shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 inset-x-0 h-1 bg-[var(--accent-warm)]"></div>
-            <Chrome size={64} className="text-[var(--accent-warm)] mb-6" />
-            <h2 className="text-3xl font-bold text-[var(--text-primary)] mb-4 font-outfit">Web App</h2>
-            <p className="text-base text-[var(--text-secondary)] mb-8 flex-1">
-              La versione più sicura e aggiornata. Usala direttamente dal browser o aggiungila alla schermata Home del tuo dispositivo per un'esperienza nativa.
-            </p>
-            <button 
-              onClick={() => toggleAccordion('web-install')}
-              className="w-full py-4 px-6 bg-[var(--accent-warm)] text-white text-lg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-md hover:shadow-lg hover:scale-[1.02] transition-all active:scale-95"
-            >
-              <Smartphone size={24} />
-              Aggiungi alla Home
-            </button>
+        {/* App Options */}
+        <div className="px-6 pb-16 max-w-5xl mx-auto w-full">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* iOS Card */}
+            <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-[var(--text-primary)] transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
+              <Apple size={56} className="text-[var(--text-primary)] mb-4" />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">iOS</h2>
+              <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
+                Scarica l'app nativa per iPhone tramite file .ipa (sideloading via AltStore).
+              </p>
+              <button 
+                onClick={() => toggleAccordion('ios-install')}
+                className="w-full py-3 px-4 bg-[var(--text-primary)] text-[var(--bg-base)] text-sm rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95"
+              >
+                <Download size={18} />
+                Istruzioni iOS
+              </button>
+            </div>
+
+            {/* Android Card */}
+            <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-green-500 transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
+              <AndroidIcon size={56} className="text-green-500 mb-4" />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">Android</h2>
+              <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
+                Installa direttamente l'APK nativo sul tuo dispositivo Android.
+              </p>
+              <button 
+                onClick={() => toggleAccordion('android-install')}
+                className="w-full py-3 px-4 bg-green-500 text-white text-sm rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95"
+              >
+                <Download size={18} />
+                Istruzioni Android
+              </button>
+            </div>
+
+            {/* Web App Card */}
+            <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-[var(--accent-warm)] transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
+              <Chrome size={56} className="text-[var(--accent-warm)] mb-4" />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">Web App</h2>
+              <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
+                Usa l'app via browser o aggiungila alla schermata Home.
+              </p>
+              <button 
+                onClick={() => toggleAccordion('web-install')}
+                className="w-full py-3 px-4 bg-[var(--accent-warm)] text-white text-sm rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95"
+              >
+                <Smartphone size={18} />
+                Aggiungi PWA
+              </button>
+            </div>
+
           </div>
         </div>
 
         {/* Instructions Accordion */}
-        <div className="px-6 pb-12 max-w-xl mx-auto w-full space-y-4">
-          <h3 className="text-xl font-bold text-[var(--text-primary)] font-outfit mb-4 text-center">Come Installare (PWA)</h3>
+        <div className="px-6 pb-12 max-w-3xl mx-auto w-full space-y-4">
+          <h3 className="text-xl font-bold text-[var(--text-primary)] font-outfit mb-4 text-center">Come Installare</h3>
+
+          {/* iOS Instructions */}
+          <div className="border border-[var(--border-color)] bg-[var(--bg-card)] rounded-2xl overflow-hidden">
+            <button 
+              onClick={() => toggleAccordion('ios-install')}
+              className="w-full p-5 flex items-center justify-between text-left hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              <span className="font-semibold text-[var(--text-primary)]">Istruzioni Sideloading iOS (.ipa)</span>
+              {openAccordion === 'ios-install' ? <ChevronUp size={20} className="text-[var(--text-secondary)]" /> : <ChevronDown size={20} className="text-[var(--text-secondary)]" />}
+            </button>
+            <AnimatePresence>
+              {openAccordion === 'ios-install' && (
+                <m.div 
+                  initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-5 pt-0 text-[var(--text-secondary)] text-sm space-y-3 bg-[var(--bg-card)]">
+                    <p>Per installare l'app nativa su iOS senza passare dall'App Store, è necessario utilizzare un tool di sideloading come <strong>AltStore</strong> o <strong>Sideloadly</strong>.</p>
+                    <ul className="list-decimal pl-5 space-y-2">
+                      <li>Scarica il file <strong>.ipa</strong> dell'applicazione.</li>
+                      <li>Installa e configura AltStore sul tuo computer e sul tuo iPhone.</li>
+                      <li>Apri AltStore sul tuo iPhone, vai in "My Apps", premi "+" e seleziona il file .ipa scaricato.</li>
+                      <li>Fidati del certificato sviluppatore nelle Impostazioni &gt; Generali &gt; VPN e gestione dispositivi.</li>
+                    </ul>
+                  </div>
+                </m.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Android Instructions */}
+          <div className="border border-[var(--border-color)] bg-[var(--bg-card)] rounded-2xl overflow-hidden">
+            <button 
+              onClick={() => toggleAccordion('android-install')}
+              className="w-full p-5 flex items-center justify-between text-left hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              <span className="font-semibold text-[var(--text-primary)]">Istruzioni Installazione Android (.apk)</span>
+              {openAccordion === 'android-install' ? <ChevronUp size={20} className="text-[var(--text-secondary)]" /> : <ChevronDown size={20} className="text-[var(--text-secondary)]" />}
+            </button>
+            <AnimatePresence>
+              {openAccordion === 'android-install' && (
+                <m.div 
+                  initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-5 pt-0 text-[var(--text-secondary)] text-sm space-y-3 bg-[var(--bg-card)]">
+                    <p>L'installazione su Android è molto più semplice tramite il file APK fornito.</p>
+                    <ul className="list-decimal pl-5 space-y-2">
+                      <li>Scarica il file <strong>.apk</strong> sul tuo dispositivo.</li>
+                      <li>Apri il file scaricato. Se richiesto, autorizza il browser o il file manager a "Installare app sconosciute" nelle Impostazioni.</li>
+                      <li>Procedi con l'installazione e apri l'app!</li>
+                    </ul>
+                  </div>
+                </m.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           {/* Web Instructions */}
           <div className="border border-[var(--border-color)] bg-[var(--bg-card)] rounded-2xl overflow-hidden">
@@ -62,7 +163,7 @@ export function LandingPage() {
               onClick={() => toggleAccordion('web-install')}
               className="w-full p-5 flex items-center justify-between text-left hover:bg-[var(--bg-hover)] transition-colors"
             >
-              <span className="font-semibold text-[var(--text-primary)]">Istruzioni Aggiunta alla Home</span>
+              <span className="font-semibold text-[var(--text-primary)]">Istruzioni Aggiunta alla Home (PWA)</span>
               {openAccordion === 'web-install' ? <ChevronUp size={20} className="text-[var(--text-secondary)]" /> : <ChevronDown size={20} className="text-[var(--text-secondary)]" />}
             </button>
             <AnimatePresence>
@@ -93,9 +194,14 @@ export function LandingPage() {
         <div className="mt-auto px-6 pb-12 pt-8 max-w-4xl mx-auto w-full">
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 flex gap-4 text-left">
             <AlertTriangle className="text-red-500 flex-shrink-0 mt-1" size={24} />
-            <div className="text-xs md:text-sm text-[var(--text-secondary)] leading-relaxed">
-              <strong className="text-[var(--text-primary)] block mb-1">Avvertenza Legale e Limitazione di Responsabilità</strong>
-              Questa applicazione è fornita come strumento software indipendente per installazione manuale (sideloading). Lo sviluppatore declina ogni responsabilità per eventuali danni al dispositivo, perdita di dati, violazioni della garanzia hardware o malfunzionamenti derivanti dall'installazione di file .apk o .ipa al di fuori degli store ufficiali (App Store e Google Play). L'utente si assume la piena e totale responsabilità derivante dall'uso di strumenti di terze parti (come AltStore) per l'installazione. L'applicazione non include codice malevolo, ma l'installazione manuale, che aggira le verifiche ufficiali (es. Google Play Protect), è effettuata esclusivamente a rischio e pericolo dell'utente.
+            <div className="text-xs md:text-sm text-[var(--text-secondary)] leading-relaxed space-y-3">
+              <div>
+                <strong className="text-[var(--text-primary)] block mb-1">Avvertenza Legale e Limitazione di Responsabilità</strong>
+                Questa applicazione è fornita come strumento software indipendente per installazione manuale (sideloading). Lo sviluppatore declina ogni responsabilità per eventuali danni al dispositivo, perdita di dati, violazioni della garanzia hardware o malfunzionamenti derivanti dall'installazione di file .apk o .ipa al di fuori degli store ufficiali (App Store e Google Play). L'utente si assume la piena e totale responsabilità derivante dall'uso di strumenti di terze parti (come AltStore) per l'installazione. L'applicazione non include codice malevolo, ma l'installazione manuale, che aggira le verifiche ufficiali (es. Google Play Protect), è effettuata esclusivamente a rischio e pericolo dell'utente.
+              </div>
+              <div className="text-[11px] opacity-80 pt-2 border-t border-red-500/20">
+                <strong>Marchi Registrati:</strong> Apple, il logo Apple e iOS sono marchi registrati di Apple Inc. Google, Chrome, Android e Google Play sono marchi di Google LLC. L'uso di loghi, icone o nomi di aziende terze in questa pagina ha il solo scopo di indicare la compatibilità tecnica del software (uso nominativo) e non implica in alcun modo associazione, sponsorizzazione, certificazione o approvazione da parte dei rispettivi proprietari.
+              </div>
             </div>
           </div>
         </div>

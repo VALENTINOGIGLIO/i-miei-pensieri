@@ -15,6 +15,9 @@ import FolderOpen from "lucide-react/dist/esm/icons/folder-open";
 import ChevronRight from "lucide-react/dist/esm/icons/chevron-right";
 import Shield from "lucide-react/dist/esm/icons/shield";
 import Brain from "lucide-react/dist/esm/icons/brain";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
+import Zap from "lucide-react/dist/esm/icons/zap";
+import SkipForward from "lucide-react/dist/esm/icons/skip-forward";
 
 interface ProfileProps {
   thoughts: ProcessedThought[];
@@ -27,22 +30,68 @@ interface ProfileData {
   booksToChallenge: { title: string; author: string; reason: string }[];
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+interface EnrichedThought {
+  id: string;
+  wikilinks: string[];
+  paraFolder: "10 - Projects" | "20 - Areas" | "30 - Resources" | "40 - Archives";
+  smartTags: string[];
+}
 
-/** Genera il contenuto Markdown+YAML di un singolo pensiero */
-function thoughtToMarkdown(t: ProcessedThought): string {
+interface EnrichedExportData {
+  enrichedThoughts: EnrichedThought[];
+  mocContent: string;
+}
+
+// ─── Step enum ───────────────────────────────────────────────────────────────
+type ModalStep = "intro" | "legal" | "ai-enrich" | "export";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function supportsFileSystemAccess(): boolean {
+  return typeof window !== "undefined" && "showDirectoryPicker" in window;
+}
+
+function safeFileName(t: ProcessedThought): string {
+  const date = new Date(t.timestamp);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const safeTitle = t.title
+    .replace(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ ]/g, "")
+    .trim()
+    .slice(0, 50);
+  return `${yyyy}-${mm}-${dd} - ${safeTitle}.md`;
+}
+
+function thoughtToMarkdown(
+  t: ProcessedThought,
+  enriched?: EnrichedThought
+): string {
   const dateStr = new Date(t.timestamp).toISOString();
   const dateDisplay = new Date(t.timestamp).toLocaleDateString("it-IT", {
-    year: "numeric", month: "long", day: "numeric"
+    year: "numeric", month: "long", day: "numeric",
   });
-  const tagsStr = t.tags ? t.tags.map(tag => `"${tag}"`).join(", ") : "";
+
+  // Merge base tags with smart AI tags
+  const baseTags = t.tags ? t.tags.map(tag => `"${tag}"`) : [];
+  const smartTags = enriched?.smartTags
+    ? enriched.smartTags.map(tag => `"${tag}"`)
+    : [];
+  const allTags = [...new Set([...baseTags, ...smartTags])];
+
+  const wikilinksSection =
+    enriched?.wikilinks && enriched.wikilinks.length > 0
+      ? `\n## 🔗 Connessioni\n\n${enriched.wikilinks.map(l => `- [[${l}]]`).join("\n")}\n`
+      : "";
+
   return `---
 title: "${t.title.replace(/"/g, '\\"')}"
 date: ${dateStr}
 category: ${t.category}
-tags: [${tagsStr}]
+tags: [${allTags.join(", ")}]
 depth: ${t.depth}
 mood: ${t.mood || "neutral"}
+para: ${enriched?.paraFolder || "30 - Resources"}
 source: i-miei-pensieri-app
 ---
 
@@ -51,39 +100,99 @@ source: i-miei-pensieri-app
 > *Registrato il ${dateDisplay}*
 
 ${t.content}
+${wikilinksSection}`;
+}
+
+function buildMOCMarkdown(
+  thoughts: ProcessedThought[],
+  enriched?: EnrichedExportData
+): string {
+  const now = new Date().toISOString();
+
+  if (enriched?.mocContent) {
+    return enriched.mocContent;
+  }
+
+  // Fallback MOC senza AI
+  const byCategory = thoughts.reduce((acc, t) => {
+    acc[t.category] = acc[t.category] || [];
+    acc[t.category].push(t);
+    return acc;
+  }, {} as Record<string, ProcessedThought[]>);
+
+  const categorySections = Object.entries(byCategory)
+    .map(([cat, ts]) =>
+      `### ${cat}\n\n${ts.map(t => `- [[${safeFileName(t).replace(".md", "")}|${t.title}]]`).join("\n")}`
+    )
+    .join("\n\n");
+
+  return `---
+tipo: mappa-contenuti
+aggiornato_il: ${now}
+totale_pensieri: ${thoughts.length}
+tags: ["MOC", "indice", "dashboard"]
+---
+
+# 🧠 La Mia Mente — Dashboard
+
+> Mappa generata automaticamente da **I Miei Pensieri**. Totale: **${thoughts.length}** pensieri.
+
+---
+
+## 📊 Tutti i Pensieri (Dataview)
+
+\`\`\`dataview
+TABLE mood as "Umore", depth as "Profondità", date as "Data"
+FROM "00 - Inbox"
+WHERE source = "i-miei-pensieri-app"
+SORT date DESC
+\`\`\`
+
+---
+
+## 🗂 Per Categoria
+
+${categorySections}
+
+---
+
+## 📅 Recenti
+
+\`\`\`dataview
+LIST
+FROM "00 - Inbox"
+WHERE source = "i-miei-pensieri-app"
+SORT date DESC
+LIMIT 10
+\`\`\`
+
+---
+
+## 💡 Suggerimento
+Installa il plugin **Dataview** in Obsidian per far funzionare le tabelle dinamiche sopra.
 `;
 }
 
-/** Genera un nome file sicuro per Obsidian */
-function safeFileName(t: ProcessedThought): string {
-  const date = new Date(t.timestamp);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const safeTitle = t.title.replace(/[^a-zA-Z0-9àèéìòùÀÈÉÌÒÙ ]/g, "").trim().slice(0, 50);
-  return `${yyyy}-${mm}-${dd} - ${safeTitle}.md`;
-}
-
-/** Controlla se il browser supporta la File System Access API */
-function supportsFileSystemAccess(): boolean {
-  return "showDirectoryPicker" in window;
-}
-
-// ─── Step enum per il modale ─────────────────────────────────────────────────
-type ModalStep = "intro" | "legal" | "export";
-
-// ─── Componente principale ───────────────────────────────────────────────────
+// ─── Componente principale ────────────────────────────────────────────────────
 
 export function Profile({ thoughts, apiKey }: ProfileProps) {
   const { t } = useLanguage();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Export modal state
   const [showExportModal, setShowExportModal] = useState(false);
   const [modalStep, setModalStep] = useState<ModalStep>("intro");
   const [exportConsent, setExportConsent] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle" | "writing" | "done" | "error">("idle");
   const [exportMessage, setExportMessage] = useState("");
+  const [vaultName, setVaultName] = useState<string | null>(null);
+
+  // AI enrichment state
+  const [enrichedData, setEnrichedData] = useState<EnrichedExportData | null>(null);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [enrichError, setEnrichError] = useState<string | null>(null);
 
   const closeModal = () => {
     setShowExportModal(false);
@@ -91,70 +200,203 @@ export function Profile({ thoughts, apiKey }: ProfileProps) {
     setExportConsent(false);
     setExportStatus("idle");
     setExportMessage("");
+    setEnrichError(null);
   };
 
-  // ─── Esportazione con File System Access API (Desktop) ──────────────────
+  // ─── Apertura Obsidian ──────────────────────────────────────────────────
+  const openObsidian = (vault?: string) => {
+    const name = vault || vaultName;
+    if (!name) return;
+    try {
+      window.open(`obsidian://open?vault=${encodeURIComponent(name)}`, "_blank");
+    } catch (_) {
+      // silent fail — Obsidian non installato
+    }
+  };
+
+  // ─── Arricchimento AI (Gemini) ──────────────────────────────────────────
+  const fetchEnrichment = async () => {
+    if (!apiKey || thoughts.length === 0) {
+      setModalStep("export");
+      return;
+    }
+    setIsEnriching(true);
+    setEnrichError(null);
+
+    try {
+      // Truncate content to avoid token limits (max ~300 chars per thought)
+      const thoughtsPayload = thoughts.map(th => ({
+        id: th.id,
+        title: th.title,
+        content: th.content.slice(0, 300),
+        category: th.category,
+        tags: th.tags,
+      }));
+
+      const prompt = `Sei un sistema di knowledge management. Analizza questi ${thoughts.length} pensieri e per ciascuno restituisci un oggetto di arricchimento.
+
+PENSIERI:
+${JSON.stringify(thoughtsPayload, null, 2)}
+
+Per ogni pensiero:
+1. "wikilinks": array di titoli ESATTI di altri pensieri nell'elenco che sono tematicamente correlati (massimo 3). Se non ci sono correlazioni, restituisci array vuoto.
+2. "paraFolder": scegli tra "10 - Projects" (obiettivi con scadenza), "20 - Areas" (responsabilità continue), "30 - Resources" (interessi/conoscenze), "40 - Archives" (inattivo/completato).
+3. "smartTags": 3-5 tag semantici in italiano, minuscolo, senza spazi (usa-trattino).
+
+Genera anche un "mocContent": una bellissima Dashboard in Markdown per Obsidian con:
+- Header YAML frontmatter
+- Blocchi \`\`\`dataview per mostrare tutti i pensieri in tabella
+- Sezioni per categoria PARA
+- Link [[wiki]] ai pensieri raggruppati per paraFolder
+- Nota: richiede plugin Dataview in Obsidian`;
+
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
+
+      const requestBody = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              enrichedThoughts: {
+                type: "ARRAY",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    id: { type: "STRING" },
+                    wikilinks: { type: "ARRAY", items: { type: "STRING" } },
+                    paraFolder: {
+                      type: "STRING",
+                      enum: ["10 - Projects", "20 - Areas", "30 - Resources", "40 - Archives"],
+                    },
+                    smartTags: { type: "ARRAY", items: { type: "STRING" } },
+                  },
+                  required: ["id", "wikilinks", "paraFolder", "smartTags"],
+                },
+              },
+              mocContent: { type: "STRING" },
+            },
+            required: ["enrichedThoughts", "mocContent"],
+          },
+        },
+        safetySettings: [
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        ],
+      };
+
+      const res = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error?.message || "Errore Gemini");
+      }
+
+      const responseData = await res.json();
+      let jsonStr = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!jsonStr) throw new Error("Risposta vuota da Gemini");
+
+      const startIdx = jsonStr.indexOf("{");
+      const endIdx = jsonStr.lastIndexOf("}");
+      if (startIdx !== -1 && endIdx !== -1) {
+        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+      }
+      const data = JSON.parse(jsonStr.trim()) as EnrichedExportData;
+      setEnrichedData(data);
+      setModalStep("export");
+    } catch (err: any) {
+      setEnrichError(err.message || "Errore durante l'arricchimento AI");
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  // ─── Export con File System Access API (Desktop) ────────────────────────
   const handleDirectExport = async () => {
     if (!exportConsent) return;
     setExportStatus("writing");
     setExportMessage("Selezione cartella Obsidian…");
 
     try {
-      // Chiedi all'utente di selezionare la cartella del Vault
       const dirHandle = await (window as any).showDirectoryPicker({
         mode: "readwrite",
         startIn: "documents",
         id: "obsidian-vault",
       });
 
+      // Salva il nome vault per obsidian://open
+      const detectedVaultName: string = dirHandle.name;
+      setVaultName(detectedVaultName);
+
       let written = 0;
 
-      // Cartella Pensieri
-      const pensieriFolderHandle = await dirHandle.getDirectoryHandle("00 - Inbox", { create: true });
+      // Mappa enrichment per id
+      const enrichMap = new Map<string, EnrichedThought>(
+        enrichedData?.enrichedThoughts.map(e => [e.id, e]) || []
+      );
+
+      // Scrivi pensieri nelle cartelle PARA corrette
       for (const thought of thoughts) {
+        const enriched = enrichMap.get(thought.id);
+        const folder = enriched?.paraFolder || "00 - Inbox";
+        const folderHandle = await dirHandle.getDirectoryHandle(folder, { create: true });
         const fileName = safeFileName(thought);
-        const fileHandle = await pensieriFolderHandle.getFileHandle(fileName, { create: true });
+        const fileHandle = await folderHandle.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
-        await writable.write(thoughtToMarkdown(thought));
+        await writable.write(thoughtToMarkdown(thought, enriched));
         await writable.close();
         written++;
-        setExportMessage(`Scrittura file ${written}/${thoughts.length}…`);
+        setExportMessage(`Scrittura ${written}/${thoughts.length} pensieri…`);
       }
 
-      // Analisi psicologica (se disponibile)
+      // Scrivi analisi psicologica
       if (profileData?.profileText) {
         const analysisContent = buildAnalysisMarkdown(profileData);
         const analysisHandle = await dirHandle.getFileHandle("Analisi_Psicologica.md", { create: true });
-        const writable = await analysisHandle.createWritable();
-        await writable.write(analysisContent);
-        await writable.close();
+        const w = await analysisHandle.createWritable();
+        await w.write(analysisContent);
+        await w.close();
       }
 
-      // Indice pensieri
-      const indexContent = buildIndexMarkdown(thoughts);
-      const indexHandle = await dirHandle.getFileHandle("Indice_Pensieri.md", { create: true });
-      const writable = await indexHandle.createWritable();
-      await writable.write(indexContent);
-      await writable.close();
+      // Scrivi Dashboard MOC
+      setExportMessage("Generazione Dashboard MOC…");
+      const mocContent = buildMOCMarkdown(thoughts, enrichedData || undefined);
+      const mocHandle = await dirHandle.getFileHandle("🧠 Dashboard.md", { create: true });
+      const mocWritable = await mocHandle.createWritable();
+      await mocWritable.write(mocContent);
+      await mocWritable.close();
 
       setExportStatus("done");
       setExportMessage(
-        `✅ ${written} pensieri scritti direttamente nel tuo Vault! Apri Obsidian per vederli.`
+        `✅ ${written} pensieri scritti nel tuo Vault "${detectedVaultName}"!`
       );
+
+      // Auto-open Obsidian dopo 800ms (solo se non Safari)
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      if (!isSafari) {
+        setTimeout(() => openObsidian(detectedVaultName), 800);
+      }
     } catch (err: any) {
       if (err?.name === "AbortError") {
-        // Utente ha annullato la selezione cartella
         setExportStatus("idle");
         setExportMessage("");
       } else {
         setExportStatus("error");
-        setExportMessage("Si è verificato un errore durante la scrittura dei file. Riprova.");
+        setExportMessage("Errore durante la scrittura dei file. Riprova.");
         console.error("Export error:", err);
       }
     }
   };
 
-  // ─── Fallback: esportazione ZIP (Mobile / Firefox) ───────────────────────
+  // ─── Fallback ZIP (Mobile / Firefox) ────────────────────────────────────
   const handleZipExport = async () => {
     if (!exportConsent) return;
     setExportStatus("writing");
@@ -162,37 +404,38 @@ export function Profile({ thoughts, apiKey }: ProfileProps) {
 
     try {
       const zip = new JSZip();
-      const folder = zip.folder("00 - Inbox");
+      const enrichMap = new Map<string, EnrichedThought>(
+        enrichedData?.enrichedThoughts.map(e => [e.id, e]) || []
+      );
 
-      thoughts.forEach((thought) => {
-        folder?.file(safeFileName(thought), thoughtToMarkdown(thought));
+      // Organizza in cartelle PARA dentro lo ZIP
+      thoughts.forEach(thought => {
+        const enriched = enrichMap.get(thought.id);
+        const folder = enriched?.paraFolder || "00 - Inbox";
+        zip.folder(folder)?.file(safeFileName(thought), thoughtToMarkdown(thought, enriched));
       });
 
       if (profileData?.profileText) {
         zip.file("Analisi_Psicologica.md", buildAnalysisMarkdown(profileData));
       }
-      zip.file("Indice_Pensieri.md", buildIndexMarkdown(thoughts));
+      zip.file("🧠 Dashboard.md", buildMOCMarkdown(thoughts, enrichedData || undefined));
 
       const blob = await zip.generateAsync({ type: "blob" });
       saveAs(blob, "I_Miei_Pensieri_Obsidian.zip");
 
       setExportStatus("done");
-      setExportMessage(
-        "✅ Archivio scaricato! Estrai il file ZIP e trascina la cartella in Obsidian."
-      );
+      setExportMessage("✅ Archivio ZIP scaricato! Estrai e apri la cartella in Obsidian.");
     } catch (err) {
       console.error("ZIP export error:", err);
       setExportStatus("error");
       setExportMessage("Errore durante la creazione del file ZIP. Riprova.");
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // ─── Helpers per il contenuto dei file ────────────────────────────────────
+  // ─── Helpers markdown ────────────────────────────────────────────────────
   function buildAnalysisMarkdown(data: ProfileData): string {
     return `---
-tipo: analisi_psicologica
+tipo: analisi-psicologica
 generato_il: ${new Date().toISOString()}
 source: i-miei-pensieri-app
 tags: ["profilo", "analisi", "IA"]
@@ -216,25 +459,7 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
 `;
   }
 
-  function buildIndexMarkdown(ts: ProcessedThought[]): string {
-    return `---
-tipo: indice
-aggiornato_il: ${new Date().toISOString()}
-totale_pensieri: ${ts.length}
----
-
-# 📖 Indice dei Pensieri
-
-Totale pensieri registrati: **${ts.length}**
-
-${ts.map(th => {
-  const safeName = safeFileName(th).replace(".md", "");
-  return `- [[00 - Inbox/${safeName}|${th.title}]]`;
-}).join("\n")}
-`;
-  }
-
-  // ─── Fetch profilo psicologico ─────────────────────────────────────────────
+  // ─── Fetch profilo psicologico ────────────────────────────────────────────
   const fetchProfile = async (force: boolean = false) => {
     if (thoughts.length === 0) return;
     if (!apiKey) {
@@ -260,7 +485,7 @@ ${ts.map(th => {
       const systemGuardrails = `
         REGOLA TASSATIVA: Sei un assistente letterario e filosofico.
         Analizza i testi evidenziando temi, schemi e stili, associandoli esclusivamente a suggerimenti letterari o filosofici.
-        NON sei un medico né uno psicologo. È SEVERAMENTE VIETATO diagnosticare disturbi, sindromi o patologie (es. depressione, ansia, ADHD).
+        NON sei un medico né uno psicologo. È SEVERAMENTE VIETATO diagnosticare disturbi, sindromi o patologie.
         Non fornire MAI consigli medici, terapeutici o psichiatrici.
         Se l'utente inserisce testi che suggeriscono intenti autolesionistici, grave disagio o minacce, INTERROMPI l'analisi e rispondi unicamente con:
         'Il contenuto di questo pensiero richiede un'attenzione umana che un'intelligenza artificiale non può fornire. Se stai attraversando un momento difficile, ti invitiamo a contattare un professionista della salute mentale o un servizio di ascolto.'
@@ -272,13 +497,11 @@ ${ts.map(th => {
 
       const prompt = `
         ${systemGuardrails}
-
         Ecco tutti i pensieri registrati finora (${thoughts.length} in totale):
         ${thoughtsText}
-
-        Sulla base di questi pensieri, fai un'analisi completa e MOLTO ONESTA della persona che li ha scritti, seguendo le regole tassative sopra indicate.
-        Sii diretto, costruttivo e analitico. Fornisci un testo descrittivo.
-        MOLTO IMPORTANTE: Se ci sono pochi pensieri (meno di 5), DEVI dichiarare esplicitamente all'inizio che i dati a disposizione sono insufficienti per un'analisi accurata. Sottolinea che l'affidabilità di questo profilo è attualmente solo superficiale e che migliorerà aggiungendo altre note. Mantieni un tono distaccato, non trarre conclusioni definitive ed evita di affermare che il profilo sia "nitido" o "molto chiaro" se si basa su un numero esiguo di pensieri.
+        Sulla base di questi pensieri, fai un'analisi completa e MOLTO ONESTA della persona che li ha scritti.
+        Sii diretto, costruttivo e analitico.
+        MOLTO IMPORTANTE: Se ci sono pochi pensieri (meno di 5), dichiara esplicitamente all'inizio che i dati sono insufficienti per un'analisi accurata.
       `;
 
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
@@ -291,49 +514,47 @@ ${ts.map(th => {
           responseSchema: {
             type: "OBJECT",
             properties: {
-              profileText: { type: "STRING", description: "Il testo dell'analisi psicologica e comportamentale in formato Markdown." },
+              profileText: { type: "STRING" },
               booksToDeepen: {
                 type: "ARRAY",
-                description: "2 libri scelti per approfondire i temi cari all'utente o con cui sarebbe d'accordo.",
                 items: {
                   type: "OBJECT",
                   properties: {
                     title: { type: "STRING" },
                     author: { type: "STRING" },
-                    reason: { type: "STRING" }
+                    reason: { type: "STRING" },
                   },
-                  required: ["title", "author", "reason"]
-                }
+                  required: ["title", "author", "reason"],
+                },
               },
               booksToChallenge: {
                 type: "ARRAY",
-                description: "2 libri scelti per sfidare le certezze e le convinzioni dell'utente.",
                 items: {
                   type: "OBJECT",
                   properties: {
                     title: { type: "STRING" },
                     author: { type: "STRING" },
-                    reason: { type: "STRING" }
+                    reason: { type: "STRING" },
                   },
-                  required: ["title", "author", "reason"]
-                }
-              }
+                  required: ["title", "author", "reason"],
+                },
+              },
             },
-            required: ["profileText", "booksToDeepen", "booksToChallenge"]
-          }
+            required: ["profileText", "booksToDeepen", "booksToChallenge"],
+          },
         },
         safetySettings: [
           { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
           { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
           { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" }
-        ]
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        ],
       };
 
       const res = await fetch(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) {
@@ -343,7 +564,7 @@ ${ts.map(th => {
 
       const responseData = await res.json();
       let jsonStr = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!jsonStr) throw new Error("Risposta vuota da Gemini. Possibile blocco di sicurezza.");
+      if (!jsonStr) throw new Error("Risposta vuota da Gemini.");
 
       const startIdx = jsonStr.indexOf("{");
       const endIdx = jsonStr.lastIndexOf("}");
@@ -364,7 +585,7 @@ ${ts.map(th => {
 
   useEffect(() => { fetchProfile(); }, [thoughts.length]);
 
-  // ─── Guard: API key mancante ──────────────────────────────────────────────
+  // ─── Guards ───────────────────────────────────────────────────────────────
   if (!apiKey) {
     return (
       <div className="w-full flex-1 flex flex-col items-center justify-center p-8 bg-[var(--bg-card)] rounded-xl border border-dashed border-red-300 dark:border-red-900/50">
@@ -387,10 +608,13 @@ ${ts.map(th => {
   }
 
   const isFileSystemSupported = supportsFileSystemAccess();
+  const stepIndex = { intro: 0, legal: 1, "ai-enrich": 2, export: 3 };
+  const totalSteps = 4;
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="w-full flex flex-col gap-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
       {/* Header */}
       <div className="flex items-end justify-between">
         <div className="flex flex-col gap-2">
@@ -410,15 +634,14 @@ ${ts.map(th => {
       {/* Warning pochi pensieri */}
       {thoughts.length < 5 && (
         <div className="bg-[var(--bg-card)] border border-[var(--accent-warm)] text-[var(--text-primary)] p-4 rounded-xl text-sm mb-2 shadow-sm">
-          <strong className="text-[var(--accent-warm)]">{t('profile.warning')}</strong> {t('profile.recordedOnly')} {thoughts.length} pensier{thoughts.length === 1 ? 'o' : 'i'}.
-          L'analisi mostrata qui sotto è molto sommaria e potenzialmente non affidabile.
-          Continua ad aggiungere {t('profile.thoughtPlural')} (ne consigliamo almeno 5) per delineare un profilo più accurato.
+          <strong className="text-[var(--accent-warm)]">{t('profile.warning')}</strong> {t('profile.recordedOnly')} {thoughts.length} pensier{thoughts.length === 1 ? "o" : "i"}.
+          L'analisi mostrata è molto sommaria. Aggiungi almeno 5 {t('profile.thoughtPlural')} per un profilo accurato.
         </div>
       )}
 
       {/* Contenuto profilo */}
       {isLoading && !profileData ? (
-        <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 flex flex-col gap-4 relative overflow-hidden">
+        <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
           <div className="flex flex-col items-center justify-center p-12 text-[var(--text-muted)] gap-4">
             <Loader2 className="animate-spin w-8 h-8" strokeWidth={1.5} />
             <span className="text-sm font-serif">{t('profile.analyzingText')}</span>
@@ -430,7 +653,7 @@ ${ts.map(th => {
         </div>
       ) : profileData ? (
         <div className="flex flex-col gap-6">
-          <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 flex flex-col gap-4 relative overflow-hidden">
+          <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
             <div className="prose prose-zinc dark:prose-invert font-serif max-w-none text-[var(--text-secondary)] leading-relaxed prose-h3:mt-6 prose-h3:mb-3">
               <div className="markdown-body font-serif">
                 <Markdown>{profileData.profileText || "Nessun profilo generato."}</Markdown>
@@ -439,7 +662,7 @@ ${ts.map(th => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {profileData.booksToDeepen && profileData.booksToDeepen.length > 0 && (
+            {profileData.booksToDeepen?.length > 0 && (
               <div className="bg-[var(--bg-card)] border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 text-[var(--accent-warm)] opacity-10">
                   <BookMarked size={48} strokeWidth={1.5} />
@@ -462,7 +685,7 @@ ${ts.map(th => {
               </div>
             )}
 
-            {profileData.booksToChallenge && profileData.booksToChallenge.length > 0 && (
+            {profileData.booksToChallenge?.length > 0 && (
               <div className="bg-[var(--bg-card)] border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 text-[var(--accent-warm)] opacity-10">
                   <Compass size={48} strokeWidth={1.5} />
@@ -488,10 +711,11 @@ ${ts.map(th => {
         </div>
       ) : null}
 
-      {/* Pulsante export Obsidian */}
+      {/* Pulsante export */}
       <div className="mt-8 flex justify-center pb-2">
         <button
           onClick={() => { setShowExportModal(true); setModalStep("intro"); }}
+          id="obsidian-export-open-btn"
           className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] px-6 py-3 rounded-xl font-medium transition-transform active:scale-95 text-sm hover:bg-[var(--bg-hover)]"
         >
           <Download size={16} />
@@ -499,7 +723,7 @@ ${ts.map(th => {
         </button>
       </div>
 
-      {/* Link download app */}
+      {/* Link app */}
       <div className="mt-4 flex justify-center pb-8">
         <a
           href="https://i-miei-pensieri.web.app/scarica"
@@ -511,16 +735,14 @@ ${ts.map(th => {
         </a>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-           MODALE ESPORTAZIONE — 3 STEP
-           Step 1: "Cos'è Obsidian?"
-           Step 2: Disclaimer Privacy / consenso
-           Step 3: Esportazione + istruzioni post-download
-          ═══════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════
+           MODALE ESPORTAZIONE — 4 STEP
+          ═══════════════════════════════════════════════════════ */}
       {showExportModal && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="bg-[var(--bg-primary)] w-full max-w-lg rounded-3xl flex flex-col border border-[var(--border-color)] shadow-2xl relative overflow-hidden">
-            {/* Close button */}
+          <div className="bg-[var(--bg-primary)] w-full max-w-lg rounded-3xl flex flex-col border border-[var(--border-color)] shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto">
+
+            {/* Close */}
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-[var(--bg-secondary)] text-[var(--text-secondary)] flex items-center justify-center hover:bg-[var(--bg-hover)] transition-colors"
@@ -528,60 +750,50 @@ ${ts.map(th => {
               <X size={16} />
             </button>
 
-            {/* Progress bar */}
-            <div className="w-full h-1 bg-[var(--bg-secondary)]">
+            {/* Progress bar 4 step */}
+            <div className="w-full h-1 bg-[var(--bg-secondary)] flex-shrink-0">
               <div
-                className="h-1 bg-[var(--accent-warm)] transition-all duration-500"
+                className="h-1 bg-gradient-to-r from-violet-500 to-purple-600 transition-all duration-500"
                 style={{
-                  width: modalStep === "intro" ? "33%" : modalStep === "legal" ? "66%" : "100%"
+                  width: `${((stepIndex[modalStep] + 1) / totalSteps) * 100}%`,
                 }}
               />
             </div>
 
-            {/* ─── STEP 1: Intro Obsidian ─────────────────────────── */}
+            {/* ── STEP 1: Intro Obsidian ─────────────────────────── */}
             {modalStep === "intro" && (
               <div className="p-6 flex flex-col gap-5">
-                {/* Header con logo stile Obsidian */}
                 <div className="flex items-center gap-3 mb-1">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-purple-800 flex items-center justify-center shadow-lg">
                     <Brain size={24} className="text-white" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold font-display text-[var(--text-primary)]">Cos'è Obsidian?</h3>
-                    <p className="text-xs text-[var(--text-muted)]">Il tuo secondo cervello</p>
+                    <p className="text-xs text-[var(--text-muted)]">Il tuo secondo cervello digitale</p>
                   </div>
                 </div>
 
                 <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                  <strong className="text-[var(--text-primary)]">Obsidian</strong> è un'app gratuita per prendere note che trasforma i tuoi pensieri in una <em>rete di conoscenza personale</em> — un vero e proprio <strong>secondo cervello digitale</strong>.
+                  <strong className="text-[var(--text-primary)]">Obsidian</strong> trasforma i tuoi pensieri in una <em>rete di conoscenza personale</em> interconnessa — visibile graficamente come una costellazione di idee.
                 </p>
 
-                {/* Feature cards */}
                 <div className="grid grid-cols-1 gap-2">
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-[var(--bg-secondary)]">
-                    <span className="text-xl">🔗</span>
-                    <div>
-                      <p className="text-sm font-medium text-[var(--text-primary)]">Connetti i tuoi pensieri</p>
-                      <p className="text-xs text-[var(--text-muted)]">Crea link tra note e scopri connessioni che non sapevi di avere nella tua mente.</p>
+                  {[
+                    { icon: "🔗", title: "Connetti i tuoi pensieri", desc: "Crea link [[wiki]] tra note e scopri connessioni invisibili." },
+                    { icon: "🌐", title: "Graph View — la tua mente visuale", desc: "Visualizza tutti i tuoi pensieri come un grafo interattivo." },
+                    { icon: "🤖", title: "AI integrata", desc: "Gemini analizzerà i tuoi pensieri e creerà i link automaticamente." },
+                    { icon: "🔒", title: "I dati sono tuoi", desc: "File Markdown locali sul tuo dispositivo. Nessun server esterno." },
+                  ].map((f, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-[var(--bg-secondary)]">
+                      <span className="text-xl flex-shrink-0">{f.icon}</span>
+                      <div>
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{f.title}</p>
+                        <p className="text-xs text-[var(--text-muted)]">{f.desc}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-[var(--bg-secondary)]">
-                    <span className="text-xl">📊</span>
-                    <div>
-                      <p className="text-sm font-medium text-[var(--text-primary)]">Visualizza graficamente la tua mente</p>
-                      <p className="text-xs text-[var(--text-muted)]">La "Graph View" di Obsidian mostra i tuoi pensieri come una costellazione di idee collegate.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 p-3 rounded-xl bg-[var(--bg-secondary)]">
-                    <span className="text-xl">🔒</span>
-                    <div>
-                      <p className="text-sm font-medium text-[var(--text-primary)]">I tuoi dati rimangono tuoi</p>
-                      <p className="text-xs text-[var(--text-muted)]">Tutto è salvato come semplici file di testo sul tuo dispositivo. Nessun server esterno.</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Download Obsidian CTA */}
                 <a
                   href="https://obsidian.md/download"
                   target="_blank"
@@ -590,22 +802,20 @@ ${ts.map(th => {
                 >
                   <div className="flex items-center gap-2">
                     <ExternalLink size={15} />
-                    <span className="text-sm font-medium">Non hai Obsidian? Scaricalo gratis</span>
+                    <span className="text-sm font-medium">Non hai Obsidian? Scaricalo gratis →</span>
                   </div>
-                  <ChevronRight size={15} className="opacity-60" />
                 </a>
 
                 <button
                   onClick={() => setModalStep("legal")}
-                  className="w-full bg-[var(--accent-warm)] text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
                 >
-                  Continua
-                  <ChevronRight size={16} />
+                  Inizia <ChevronRight size={16} />
                 </button>
               </div>
             )}
 
-            {/* ─── STEP 2: Disclaimer Legale ─────────────────────── */}
+            {/* ── STEP 2: Disclaimer Legale ─────────────────────── */}
             {modalStep === "legal" && (
               <div className="p-6 flex flex-col gap-5">
                 <div className="flex items-center gap-3 mb-1">
@@ -613,15 +823,15 @@ ${ts.map(th => {
                     <Shield size={24} className="text-red-500" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold font-display text-[var(--text-primary)]">Avviso di Sicurezza</h3>
+                    <h3 className="text-xl font-bold font-display text-[var(--text-primary)]">Avviso Privacy</h3>
                     <p className="text-xs text-[var(--text-muted)]">Leggi prima di procedere</p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 flex flex-col gap-2">
-                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">⚠️ I tuoi dati usciranno dalla cassaforte crittografata</p>
+                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">⚠️ I dati escono dalla cassaforte crittografata (E2EE)</p>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                    L'app attualmente protegge i tuoi pensieri con crittografia end-to-end (E2EE). Esportando verso Obsidian, i file vengono salvati come <strong>testo in chiaro</strong> sul tuo dispositivo. Qualsiasi persona o app con accesso alla memoria del tuo dispositivo potrebbe leggerli.
+                    Esportando verso Obsidian, i tuoi pensieri vengono convertiti in file <strong>Markdown in chiaro</strong> sul tuo dispositivo. Qualsiasi app con accesso allo storage potrebbe leggerli. Sei l'unico responsabile della loro sicurezza.
                   </p>
                 </div>
 
@@ -631,11 +841,11 @@ ${ts.map(th => {
                       type="checkbox"
                       id="export-consent-checkbox"
                       checked={exportConsent}
-                      onChange={(e) => setExportConsent(e.target.checked)}
+                      onChange={e => setExportConsent(e.target.checked)}
                       className="mt-0.5 w-5 h-5 flex-shrink-0 rounded border-orange-400 text-orange-500 focus:ring-orange-500/20"
                     />
                     <span className="text-sm text-orange-700 dark:text-orange-400 font-medium leading-snug">
-                      Ho letto l'avviso. Comprendo che i miei dati saranno in formato non crittografato fuori dall'app e mi assumo la piena responsabilità per la loro sicurezza.
+                      Ho capito. I miei dati saranno in chiaro fuori dall'app e mi assumo la piena responsabilità per la loro sicurezza.
                     </span>
                   </label>
                 </div>
@@ -648,18 +858,124 @@ ${ts.map(th => {
                     ← Indietro
                   </button>
                   <button
-                    onClick={() => setModalStep("export")}
+                    onClick={() => setModalStep("ai-enrich")}
                     disabled={!exportConsent}
-                    className="flex-[2] bg-[var(--accent-warm)] text-white py-3 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center gap-2"
+                    className="flex-[2] bg-gradient-to-r from-violet-600 to-purple-700 text-white py-3 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 flex items-center justify-center gap-2"
                   >
-                    Procedi
-                    <ChevronRight size={16} />
+                    Continua <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ─── STEP 3: Export + istruzioni post-download ────── */}
+            {/* ── STEP 3: AI Enrichment ─────────────────────────── */}
+            {modalStep === "ai-enrich" && (
+              <div className="p-6 flex flex-col gap-5">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg">
+                    <Sparkles size={24} className="text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold font-display text-[var(--text-primary)]">✨ Potenzia con l'IA</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Passo opzionale — ~5 secondi</p>
+                  </div>
+                </div>
+
+                {!isEnriching && !enrichedData && !enrichError && (
+                  <>
+                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                      Prima di esportare, vuoi che <strong>Gemini analizzi i tuoi pensieri</strong> e li arricchisca automaticamente?
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { icon: "🔗", label: "[[Wikilinks]] automatici tra pensieri correlati" },
+                        { icon: "📁", label: "Categorizzazione automatica nelle cartelle PARA" },
+                        { icon: "🏷️", label: "Tag semantici intelligenti in italiano" },
+                        { icon: "📊", label: "Dashboard Dataview con tabelle dinamiche" },
+                      ].map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-secondary)]">
+                          <span className="text-base">{f.icon}</span>
+                          <span className="text-sm text-[var(--text-secondary)]">{f.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setModalStep("export")}
+                        className="flex-1 py-3 rounded-xl font-medium text-sm border border-[var(--border-color)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] transition-colors flex items-center justify-center gap-1"
+                      >
+                        <SkipForward size={14} />
+                        Salta
+                      </button>
+                      <button
+                        onClick={fetchEnrichment}
+                        className="flex-[2] bg-gradient-to-r from-amber-500 to-orange-600 text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
+                      >
+                        <Zap size={16} />
+                        Potenzia con IA
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {isEnriching && (
+                  <div className="flex flex-col items-center justify-center gap-4 py-8">
+                    <div className="relative">
+                      <Loader2 size={40} className="animate-spin text-amber-500" strokeWidth={1.5} />
+                      <Sparkles size={16} className="text-amber-400 absolute -top-1 -right-1" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">Gemini sta analizzando…</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">Creazione wikilinks e categorizzazione PARA</p>
+                    </div>
+                  </div>
+                )}
+
+                {enrichedData && !isEnriching && (
+                  <div className="flex flex-col gap-3">
+                    <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">✅ Arricchimento completato!</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">
+                        {thoughts.length} pensieri categorizzati · Wikilinks generati · Dashboard MOC pronta
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setModalStep("export")}
+                      className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
+                    >
+                      Continua all'esportazione <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+
+                {enrichError && !isEnriching && (
+                  <div className="flex flex-col gap-3">
+                    <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <p className="text-sm font-semibold text-red-600 dark:text-red-400">⚠️ Errore arricchimento AI</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">{enrichError}</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setModalStep("export")}
+                        className="flex-1 py-3 rounded-xl font-medium text-sm border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        Salta e continua
+                      </button>
+                      <button
+                        onClick={fetchEnrichment}
+                        className="flex-[2] bg-gradient-to-r from-amber-500 to-orange-600 text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90"
+                      >
+                        Riprova
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── STEP 4: Export ────────────────────────────────── */}
             {modalStep === "export" && (
               <div className="p-6 flex flex-col gap-5">
                 <div className="flex items-center gap-3 mb-1">
@@ -669,12 +985,11 @@ ${ts.map(th => {
                   <div>
                     <h3 className="text-xl font-bold font-display text-[var(--text-primary)]">Esporta in Obsidian</h3>
                     <p className="text-xs text-[var(--text-muted)]">
-                      {thoughts.length} pensieri pronti all'esportazione
+                      {thoughts.length} pensieri · {enrichedData ? "🤖 AI arricchiti" : "Export standard"}
                     </p>
                   </div>
                 </div>
 
-                {/* Stato esportazione */}
                 {exportStatus === "idle" && (
                   <div className="flex flex-col gap-3">
                     {isFileSystemSupported ? (
@@ -684,7 +999,7 @@ ${ts.map(th => {
                         className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
                       >
                         <FolderOpen size={20} />
-                        <span>Seleziona il tuo Vault Obsidian</span>
+                        Seleziona il tuo Vault Obsidian
                       </button>
                     ) : (
                       <button
@@ -693,52 +1008,58 @@ ${ts.map(th => {
                         className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
                       >
                         <Download size={20} />
-                        <span>Scarica archivio ZIP per Obsidian</span>
+                        Scarica archivio ZIP per Obsidian
                       </button>
                     )}
 
-                    {/* Istruzioni contestuali */}
                     <div className="p-4 rounded-xl bg-[var(--bg-secondary)] flex flex-col gap-3">
                       <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
                         {isFileSystemSupported ? "Come funziona (Desktop)" : "Come procedere (Mobile)"}
                       </p>
                       {isFileSystemSupported ? (
                         <ol className="text-xs text-[var(--text-secondary)] flex flex-col gap-2 list-none">
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-                            <span>Clicca il pulsante qui sopra: si aprirà una finestra del sistema.</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                            <span>Naviga e seleziona la cartella del tuo Vault di Obsidian.</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">3</span>
-                            <span>I tuoi pensieri appariranno <strong>istantaneamente</strong> dentro Obsidian nella cartella "00 - Inbox".</span>
-                          </li>
+                          {[
+                            "Clicca il pulsante: si aprirà la finestra di selezione cartella.",
+                            "Seleziona la cartella del tuo Vault di Obsidian.",
+                            `I pensieri vengono scritti nelle cartelle PARA ${enrichedData ? "automaticamente" : "(cartella Inbox)"}. Obsidian si aprirà automaticamente!`,
+                          ].map((step, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">
+                                {i + 1}
+                              </span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
                         </ol>
                       ) : (
                         <ol className="text-xs text-[var(--text-secondary)] flex flex-col gap-2 list-none">
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-                            <span>Scarica il file <strong>.zip</strong> cliccando il pulsante qui sopra.</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                            <span>Estrai il contenuto dello zip sul tuo computer.</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">3</span>
-                            <span>Trascina le cartelle estratte dentro la tua cartella Vault di Obsidian. Apri Obsidian: tutto è già lì! 🎉</span>
-                          </li>
+                          {[
+                            "Scarica il file .zip con il pulsante sopra.",
+                            "Estrai il contenuto sul tuo computer.",
+                            "Trascina le cartelle estratte dentro il tuo Vault Obsidian.",
+                          ].map((step, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">
+                                {i + 1}
+                              </span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
                         </ol>
                       )}
                     </div>
+
+                    <button
+                      onClick={() => setModalStep("ai-enrich")}
+                      className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+                    >
+                      ← Indietro
+                    </button>
                   </div>
                 )}
 
                 {exportStatus === "writing" && (
-                  <div className="flex flex-col items-center justify-center gap-4 py-6">
+                  <div className="flex flex-col items-center justify-center gap-4 py-8">
                     <Loader2 size={36} className="animate-spin text-violet-500" strokeWidth={1.5} />
                     <p className="text-sm text-[var(--text-secondary)]">{exportMessage}</p>
                   </div>
@@ -746,38 +1067,43 @@ ${ts.map(th => {
 
                 {exportStatus === "done" && (
                   <div className="flex flex-col gap-4">
-                    <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-sm text-green-700 dark:text-green-400 font-medium text-center">
-                      {exportMessage}
+                    <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-center">
+                      <p className="text-sm font-bold text-green-700 dark:text-green-400">{exportMessage}</p>
                     </div>
 
-                    {/* Istruzioni post-export */}
+                    {/* Pulsante "Apri in Obsidian" */}
+                    {(vaultName || isFileSystemSupported) && (
+                      <button
+                        onClick={() => openObsidian()}
+                        id="open-obsidian-btn"
+                        className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
+                      >
+                        <Brain size={20} />
+                        🔮 Apri in Obsidian
+                      </button>
+                    )}
+
+                    {/* Prossimi passi */}
                     <div className="p-4 rounded-xl bg-[var(--bg-secondary)] flex flex-col gap-3">
                       <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">Prossimi passi in Obsidian</p>
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-start gap-2">
-                          <span className="text-base">📁</span>
-                          <p className="text-xs text-[var(--text-secondary)]">Apri Obsidian e trovi i tuoi pensieri nella cartella <strong>"00 - Inbox"</strong>.</p>
+                      {[
+                        { icon: "📁", text: `Trova i tuoi pensieri ${enrichedData ? "nelle cartelle PARA (Projects, Areas, Resources…)" : "nella cartella \"00 - Inbox\""}` },
+                        { icon: "📊", text: "Apri \"🧠 Dashboard.md\" per la mappa visuale dei tuoi pensieri" },
+                        { icon: "🌐", text: "Prova la Graph View per vedere le connessioni tra pensieri" },
+                        { icon: "🔗", text: enrichedData ? "I [[wikilinks]] tra pensieri correlati sono già stati creati dall'IA!" : "Usa [[doppie parentesi]] per collegare le note manualmente" },
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="text-base flex-shrink-0">{step.icon}</span>
+                          <p className="text-xs text-[var(--text-secondary)]">{step.text}</p>
                         </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-base">🔗</span>
-                          <p className="text-xs text-[var(--text-secondary)]">Usa <strong>[[doppie parentesi]]</strong> per collegare note tra di loro e costruire la tua rete di conoscenza.</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-base">🌐</span>
-                          <p className="text-xs text-[var(--text-secondary)]">Prova la <strong>"Graph View"</strong> (dal menu laterale) per vedere la mappa visuale della tua mente.</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <span className="text-base">📊</span>
-                          <p className="text-xs text-[var(--text-secondary)]">Apri il file <strong>"Indice_Pensieri.md"</strong> per una lista completa con link a tutti i tuoi pensieri.</p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
 
                     <button
                       onClick={closeModal}
-                      className="w-full bg-[var(--accent-warm)] text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90"
+                      className="w-full py-3 rounded-xl font-medium text-sm border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
                     >
-                      Perfetto, chiudi
+                      Chiudi
                     </button>
                   </div>
                 )}
@@ -799,19 +1125,10 @@ ${ts.map(th => {
                         className="flex-[2] bg-[var(--accent-warm)] text-white py-3 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-2"
                       >
                         <Download size={16} />
-                        Usa ZIP invece
+                        Usa ZIP
                       </button>
                     </div>
                   </div>
-                )}
-
-                {exportStatus === "idle" && (
-                  <button
-                    onClick={() => setModalStep("legal")}
-                    className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-                  >
-                    ← Indietro
-                  </button>
                 )}
               </div>
             )}
