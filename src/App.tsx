@@ -36,7 +36,6 @@ import { ConnectionIndicator } from './components/ConnectionIndicator';
 import { Profile } from './components/Profile';
 import { LandingPage } from './components/LandingPage';
 import { useLanguage } from './contexts/LanguageContext';
-import { RenameOldThoughts } from './components/RenameOldThoughts';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -179,6 +178,19 @@ export default function App() {
     };
     fetchApiKey();
   }, [user, cryptoKey]);
+
+  // Auto-rename old default thoughts
+  useEffect(() => {
+    const toRename = thoughts.filter(t => t.title === "Pensiero Veloce" || t.title === "Pensiero Salvato");
+    if (toRename.length > 0) {
+      const bulkUpdates = toRename.map(t => {
+        let defaultTitle = t.content.split(' ').slice(0, 5).join(' ');
+        if (t.content.split(' ').length > 5) defaultTitle += '...';
+        return { id: t.id, updatedData: { title: defaultTitle } };
+      });
+      updateThoughtsBulk(bulkUpdates).catch(console.error);
+    }
+  }, [thoughts, updateThoughtsBulk]);
 
   const handleSaveApiKey = async (key: string) => {
     setApiKey(key);
@@ -746,8 +758,6 @@ export default function App() {
                   </div>
                 </div>
 
-                <RenameOldThoughts user={user} cryptoKey={cryptoKey} apiKey={apiKey} />
-
                 {/* ─── ZONA PERICOLOSA: Elimina Account ─── */}
                 <div className="mt-2 border-2 border-red-500/30 rounded-2xl overflow-hidden bg-red-500/5">
                   <div className="p-4 border-b border-red-500/20">
@@ -789,7 +799,7 @@ export default function App() {
         <BottomNav 
           activeTab={activeTab} 
           onTabChange={setActiveTab} 
-          enableAnalisi={true} 
+          enableAnalisi={enableAiAnalysis || enableAdvancedStats || enableMoodSummary || enableInnerConnection} 
         />
         
         <Legal />
