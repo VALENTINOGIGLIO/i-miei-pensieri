@@ -83,7 +83,7 @@ export default function App() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
 
-  const { thoughts, setThoughts, loading: thoughtsLoading, saveThought, deleteThought, updateThought } = useThoughts(user, cryptoKey);
+  const { thoughts, setThoughts, loading: thoughtsLoading, saveThought, deleteThought, updateThought, updateThoughtsBulk } = useThoughts(user, cryptoKey);
   const { isListening, transcript, error: dictationError, startListening, stopListening, isSupported } = useDictation();
   const [lastTranscript, setLastTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -369,6 +369,7 @@ export default function App() {
     const langName = targetLang === 'en' ? 'Inglese' : 'Italiano';
     
     try {
+      const bulkUpdates = [];
       for (const t of thoughts) {
         let newContent = t.content;
         
@@ -388,9 +389,13 @@ export default function App() {
           if (data.responseData?.translatedText) newContent = data.responseData.translatedText;
         }
         
-        await updateThought(t.id, { ...t, content: newContent });
+        bulkUpdates.push({ id: t.id, updatedData: { content: newContent } });
         // sleep a bit to avoid rate limits
         await new Promise(r => setTimeout(r, 500));
+      }
+      
+      if (bulkUpdates.length > 0) {
+        await updateThoughtsBulk(bulkUpdates);
       }
       alert(t('app.translationCompleted'));
     } catch (e) {
@@ -756,6 +761,13 @@ export default function App() {
                       completa e irreversibile di tutti i tuoi dati. L'operazione è permanente.
                     </p>
                   </div>
+                </div>
+                
+                {/* ─── Link Legali ─── */}
+                <div className="flex flex-col items-center justify-center gap-2 mt-8 mb-4">
+                  <button onClick={() => window.dispatchEvent(new Event('open_privacy_modal'))} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors underline decoration-dotted underline-offset-4">
+                    {t('app.privacyAndTerms', 'Privacy & Termini di Servizio')}
+                  </button>
                 </div>
              </div>
            )}

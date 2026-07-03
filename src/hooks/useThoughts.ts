@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, orderBy } from "firebase/firestore";
+import { collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, orderBy, writeBatch } from "firebase/firestore";
 import { db, auth } from "../lib/firebase";
 import { encryptText, decryptText } from "../lib/crypto";
 import { ProcessedThought } from "../types";
@@ -127,6 +127,33 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
     }
   };
 
+  const updateThoughtsBulk = async (thoughtsToUpdate: {id: string, updatedData: any}[]) => {
+    if (!auth.currentUser?.uid || !cryptoKey) return;
+    try {
+      const batch = writeBatch(db);
+      for (const item of thoughtsToUpdate) {
+        const existingThought = thoughts.find(t => t.id === item.id);
+        if (!existingThought) continue;
+        if (existingThought.title === "⚠️ Errore Decrittografia") continue;
+
+        const mergedThought = { ...existingThought, ...item.updatedData };
+        const thoughtJson = JSON.stringify(mergedThought);
+        const { ciphertext, iv } = await encryptText(thoughtJson, cryptoKey);
+
+        const thoughtRef = doc(db, `users/${auth.currentUser.uid}/thoughts`, item.id);
+        batch.update(thoughtRef, {
+          ciphertext,
+          iv,
+          timestamp: mergedThought.timestamp
+        });
+      }
+      await batch.commit();
+    } catch (err) {
+      console.error("Failed to update thoughts in bulk", err);
+      throw err;
+    }
+  };
+
   return {
     thoughts,
     setThoughts,
@@ -134,6 +161,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
     error,
     saveThought,
     deleteThought,
-    updateThought
+    updateThought,
+    updateThoughtsBulk
   };
 }

@@ -151,7 +151,7 @@ try {
       `;
 
       // 4. Chiamata diretta a Google Gemini API
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey.trim()}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
       
       const requestBody = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -217,7 +217,12 @@ try {
       let jsonStr = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!jsonStr) throw new Error("Risposta vuota da Gemini. Possibile blocco di sicurezza.");
 
-      jsonStr = jsonStr.replace(/```json/gi, "").replace(/```/g, "").trim();
+      const startIdx = jsonStr.indexOf('{');
+      const endIdx = jsonStr.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+      }
+      jsonStr = jsonStr.trim();
       const data = JSON.parse(jsonStr) as ProfileData;
 
       // 4. Salviamo i dati
@@ -234,7 +239,7 @@ try {
 
   useEffect(() => {
     fetchProfile();
-  }, [thoughts]);
+  }, [thoughts.length]);
   if (!apiKey) {
     return (
       <div className="w-full flex-1 flex flex-col items-center justify-center p-8 bg-[var(--bg-card)] rounded-xl border border-dashed border-red-300 dark:border-red-900/50">
