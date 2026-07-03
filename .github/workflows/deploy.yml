@@ -1,0 +1,64 @@
+name: Deploy to Firebase and Build Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Web App (Vite)
+        run: npm run build
+
+      - name: Deploy to Firebase Hosting
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Sync Capacitor
+        run: npx cap sync
+
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+        continue-on-error: true
+
+      - name: Build iOS App (Simulator)
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator build
+        continue-on-error: true
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IMieiPensieri-Android
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+        continue-on-error: true
+
+      - name: Upload iOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: IMieiPensieri-iOS
+          path: ios/App/build/Build/Products/Debug-iphonesimulator/App.app
+        continue-on-error: true
