@@ -10,11 +10,25 @@ import ShieldCheck from "lucide-react/dist/esm/icons/shield-check";
 import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
 
 // Componente SVG per il logo Android
-const AndroidIcon = ({ size = 24, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
-    <path d="M17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414C17.523 15.3414 17.523 15.3414 17.523 15.3414Z" fill="currentColor"/>
-    <path d="M6.46513 15.3414C6.46513 15.3414 6.46513 15.3414 6.46513 15.3414C6.46513 15.3414 6.46513 15.3414 6.46513 15.3414Z" fill="currentColor"/>
-    <path d="M17.2001 7.7335L19.2938 4.10864C19.4678 3.80665 19.3639 3.42168 19.062 3.24773C18.76 3.07379 18.375 3.17772 18.201 3.47971L16.0357 7.22941C14.7797 6.64356 13.4079 6.30908 11.9682 6.30908C10.5284 6.30908 9.15652 6.64356 7.90048 7.22941L5.73523 3.47971C5.56128 3.17772 5.17631 3.07379 4.87433 3.24773C4.57234 3.42168 4.46841 3.80665 4.64236 4.10864L6.73602 7.7335C3.39806 9.54441 1.13459 13.0456 1.01025 17.1593H22.9262C22.8018 13.0456 20.5383 9.54441 17.2001 7.7335ZM6.46513 13.7371C5.81156 13.7371 5.28186 13.2074 5.28186 12.5539C5.28186 11.9003 5.81156 11.3706 6.46513 11.3706C7.1187 11.3706 7.6484 11.9003 7.6484 12.5539C7.6484 13.2074 7.1187 13.7371 6.46513 13.7371ZM17.523 13.7371C16.8694 13.7371 16.3397 13.2074 16.3397 12.5539C16.3397 11.9003 16.8694 11.3706 17.523 11.3706C18.1766 11.3706 18.7063 11.9003 18.7063 12.5539C18.7063 13.2074 18.1766 13.7371 17.523 13.7371Z" fill="currentColor"/>
+const AndroidLogo = ({ size = 24, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 576 512" fill="#3DDC84" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M420.55,301.93a24,24,0,1,1,24-24,24,24,0,0,1-24,24m-265.1,0a24,24,0,1,1,24-24,24,24,0,0,1-24,24m273.7-144.48,47.94-83a10,10,0,1,0-17.27-10h0l-48.54,84.07a301.25,301.25,0,0,0-246.56,0L116.18,64.45a10,10,0,1,0-17.27,10h0l48,83.24C73.68,197.62,24,258.1,24,328V368H552V328c0-69.89-49.68-130.38-122.85-170.55"/>
+  </svg>
+);
+
+const AppleLogo = ({ size = 24, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 384 512" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/>
+  </svg>
+);
+
+const ChromeLogo = ({ size = 24, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path fill="#4CAF50" d="M24 8c-6.8 0-12.6 4.3-14.8 10.3L16 30l8 14c8.8 0 16-7.2 16-16 0-2.4-.5-4.7-1.4-6.8L24 8z"/>
+    <path fill="#F44336" d="M24 8C15.2 8 8 15.2 8 24c0 2.4.5 4.7 1.4 6.8L16 18h23.2C37 12 31 8 24 8z"/>
+    <path fill="#FFEB3B" d="M40 24c0 8.8-7.2 16-16 16l-8-14h15.2c1.8-2 2.8-4.8 2.8-8 0-1.8-.4-3.5-1.1-5L40 24z"/>
+    <circle fill="#fff" cx="24" cy="24" r="9"/>
+    <circle fill="#1976D2" cx="24" cy="24" r="7"/>
   </svg>
 );
 
@@ -47,8 +61,8 @@ export function LandingPage() {
             
             {/* iOS Card */}
             <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-[var(--text-primary)] transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
-              <Apple size={56} className="text-[var(--text-primary)] mb-4" />
-              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">iOS</h2>
+              <AppleLogo size={56} className="text-[var(--text-primary)] mb-4" />
+              <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">iPhone & iPad</h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
                 Scarica l'app nativa per iPhone tramite file .ipa (sideloading via AltStore).
               </p>
@@ -63,7 +77,7 @@ export function LandingPage() {
 
             {/* Android Card */}
             <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-green-500 transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
-              <AndroidIcon size={56} className="text-green-500 mb-4" />
+              <AndroidLogo size={56} className="mb-4" />
               <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">Android</h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
                 Installa direttamente l'APK nativo sul tuo dispositivo Android.
@@ -78,15 +92,18 @@ export function LandingPage() {
             </div>
 
             {/* Web App Card */}
-            <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-[var(--accent-warm)] transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group">
-              <Chrome size={56} className="text-[var(--accent-warm)] mb-4" />
+            <div className="bg-gradient-to-b from-[var(--bg-secondary)] to-[var(--bg-primary)] border-2 border-[var(--border-color)] hover:border-[#4285F4] transition-colors rounded-3xl p-6 flex flex-col items-center text-center shadow-lg group relative">
+              <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-[#4285F4] text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border-2 border-[var(--bg-primary)]">
+                CONSIGLIATA
+              </div>
+              <ChromeLogo size={56} className="mb-4" />
               <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2 font-outfit">Web App</h2>
               <p className="text-sm text-[var(--text-secondary)] mb-6 flex-1">
                 Usa l'app via browser o aggiungila alla schermata Home.
               </p>
               <button 
                 onClick={() => toggleAccordion('web-install')}
-                className="w-full py-3 px-4 bg-[var(--accent-warm)] text-white text-sm rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95"
+                className="w-full py-3 px-4 bg-[#4285F4] text-white text-sm rounded-xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-95"
               >
                 <Smartphone size={18} />
                 Aggiungi PWA

@@ -321,6 +321,7 @@ export default function App() {
         id: crypto.randomUUID(),
         title: aiResult.title || "Nuovo Pensiero",
         content: aiResult.content || transcript.trim(),
+        rawText: transcript.trim(),
         originalAudio: transcript.trim(),
         timestamp: Date.now(),
         tags: aiResult.tags || ["riflessione"],
@@ -339,6 +340,7 @@ export default function App() {
         id: crypto.randomUUID(),
         title: "Pensiero Salvato",
         content: transcript.trim(),
+        rawText: transcript.trim(),
         originalAudio: transcript.trim(),
         timestamp: Date.now(),
         tags: ["bozza"],
@@ -627,7 +629,7 @@ export default function App() {
                   </div>
                 )}
                 {enableInnerConnection && <ConnectionIndicator thoughts={thoughts} />}
-                {enableAiAnalysis && <Profile thoughts={thoughts} apiKey={apiKey} />}
+                <Profile thoughts={thoughts} apiKey={apiKey} cryptoKey={cryptoKey} enableAiAnalysis={enableAiAnalysis} />
                 <Stats thoughts={thoughts} enableAdvancedStats={enableAdvancedStats} enableMoodSummary={enableMoodSummary} enableInnerConnection={false} apiKey={apiKey} />
                 <Legal />
              </div>
@@ -788,7 +790,7 @@ export default function App() {
                 {/* ─── Link Legali ─── */}
                 <div className="flex flex-col items-center justify-center gap-2 mt-8 mb-4">
                   <button onClick={() => window.dispatchEvent(new Event('open_privacy_modal'))} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors underline decoration-dotted underline-offset-4">
-                    {t('app.privacyAndTerms', 'Privacy & Termini di Servizio')}
+                    {t('app.privacyAndTerms', { defaultValue: 'Privacy & Termini di Servizio' })}
                   </button>
                 </div>
              </div>

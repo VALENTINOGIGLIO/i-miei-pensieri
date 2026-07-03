@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLanguage } from '../contexts/LanguageContext';
 import { ProcessedThought } from "../types";
+import { encryptText, decryptText } from '../lib/crypto';
 import Loader2 from "lucide-react/dist/esm/icons/loader-2";
 import RefreshCw from "lucide-react/dist/esm/icons/refresh-cw";
 import BookMarked from "lucide-react/dist/esm/icons/book-marked";
@@ -22,6 +23,8 @@ import SkipForward from "lucide-react/dist/esm/icons/skip-forward";
 interface ProfileProps {
   thoughts: ProcessedThought[];
   apiKey: string;
+  cryptoKey?: CryptoKey | null;
+  enableAiAnalysis?: boolean;
 }
 
 interface ProfileData {
@@ -42,14 +45,27 @@ interface EnrichedExportData {
   mocContent: string;
 }
 
-// ─── Step enum ───────────────────────────────────────────────────────────────
-type ModalStep = "intro" | "legal" | "ai-enrich" | "export";
+// ─── Browser Detection ─────────────────────────────────────────────────────────
+type BrowserName = "chrome" | "firefox" | "safari" | "edge" | "other";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function detectBrowser(): BrowserName {
+  if (typeof window === "undefined") return "other";
+  const ua = navigator.userAgent;
+  if (/Edg\//.test(ua)) return "edge";
+  if (/Chrome\//.test(ua) && !/Edg\//.test(ua)) return "chrome";
+  if (/Firefox\//.test(ua)) return "firefox";
+  if (/^((?!chrome|android).)*safari/i.test(ua)) return "safari";
+  return "other";
+}
 
 function supportsFileSystemAccess(): boolean {
   return typeof window !== "undefined" && "showDirectoryPicker" in window;
 }
+
+// ─── Step enum ───────────────────────────────────────────────────────────────
+type ModalStep = "intro" | "legal" | "ai-enrich" | "export";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function safeFileName(t: ProcessedThought): string {
   const date = new Date(t.timestamp);
@@ -175,7 +191,7 @@ Installa il plugin **Dataview** in Obsidian per far funzionare le tabelle dinami
 
 // ─── Componente principale ────────────────────────────────────────────────────
 
-export function Profile({ thoughts, apiKey }: ProfileProps) {
+export function Profile({ thoughts, apiKey, cryptoKey, enableAiAnalysis = true }: ProfileProps) {
   const { t } = useLanguage();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -187,7 +203,9 @@ export function Profile({ thoughts, apiKey }: ProfileProps) {
   const [exportConsent, setExportConsent] = useState(false);
   const [exportStatus, setExportStatus] = useState<"idle" | "writing" | "done" | "error">("idle");
   const [exportMessage, setExportMessage] = useState("");
-  const [vaultName, setVaultName] = useState<string | null>(null);
+  const [vaultName, setVaultName] = useState<string | null>(
+    () => localStorage.getItem("obsidian_vault_name")
+  );
 
   // AI enrichment state
   const [enrichedData, setEnrichedData] = useState<EnrichedExportData | null>(null);
@@ -332,9 +350,10 @@ Genera anche un "mocContent": una bellissima Dashboard in Markdown per Obsidian 
         id: "obsidian-vault",
       });
 
-      // Salva il nome vault per obsidian://open
+      // Salva il nome vault per obsidian://open e per sessioni future
       const detectedVaultName: string = dirHandle.name;
       setVaultName(detectedVaultName);
+      localStorage.setItem("obsidian_vault_name", detectedVaultName);
 
       let written = 0;
 
@@ -473,8 +492,14 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
 
     if (!force && cachedProfileData && profileThoughtsSignature === currentSignature) {
       try {
-        setProfileData(JSON.parse(cachedProfileData));
-        return;
+        if (cryptoKey) {
+          const parsedCache = JSON.parse(cachedProfileData);
+          if (parsedCache.ciphertext && parsedCache.iv) {
+             const decryptedData = await decryptText(parsedCache.ciphertext, parsedCache.iv, cryptoKey);
+             setProfileData(JSON.parse(decryptedData));
+             return;
+          }
+        }
       } catch (_) { /* cache corrotta */ }
     }
 
@@ -574,7 +599,10 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
       const data = JSON.parse(jsonStr.trim()) as ProfileData;
 
       setProfileData(data);
-      localStorage.setItem("cached_profile_data", JSON.stringify(data));
+      if (cryptoKey) {
+        const encrypted = await encryptText(JSON.stringify(data), cryptoKey);
+        localStorage.setItem("cached_profile_data", JSON.stringify(encrypted));
+      }
       localStorage.setItem("profile_thoughts_signature", currentSignature);
     } catch (err: any) {
       setError(err.message);
@@ -583,10 +611,10 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
     }
   };
 
-  useEffect(() => { fetchProfile(); }, [thoughts.length]);
+  useEffect(() => { if (enableAiAnalysis) fetchProfile(); }, [thoughts.length, enableAiAnalysis]);
 
   // ─── Guards ───────────────────────────────────────────────────────────────
-  if (!apiKey) {
+  if (enableAiAnalysis && !apiKey) {
     return (
       <div className="w-full flex-1 flex flex-col items-center justify-center p-8 bg-[var(--bg-card)] rounded-xl border border-dashed border-red-300 dark:border-red-900/50">
         <p className="text-red-500 font-medium text-center mb-2">{t('profile.missingApiKeyTitle')}</p>
@@ -608,6 +636,10 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
   }
 
   const isFileSystemSupported = supportsFileSystemAccess();
+  const browser = detectBrowser();
+  const isSafari = browser === "safari";
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const [urlCopied, setUrlCopied] = useState(false);
   const stepIndex = { intro: 0, legal: 1, "ai-enrich": 2, export: 3 };
   const totalSteps = 4;
 
@@ -632,7 +664,7 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
       </div>
 
       {/* Warning pochi pensieri */}
-      {thoughts.length < 5 && (
+      {enableAiAnalysis && thoughts.length < 5 && (
         <div className="bg-[var(--bg-card)] border border-[var(--accent-warm)] text-[var(--text-primary)] p-4 rounded-xl text-sm mb-2 shadow-sm">
           <strong className="text-[var(--accent-warm)]">{t('profile.warning')}</strong> {t('profile.recordedOnly')} {thoughts.length} pensier{thoughts.length === 1 ? "o" : "i"}.
           L'analisi mostrata è molto sommaria. Aggiungi almeno 5 {t('profile.thoughtPlural')} per un profilo accurato.
@@ -640,18 +672,18 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
       )}
 
       {/* Contenuto profilo */}
-      {isLoading && !profileData ? (
+      {enableAiAnalysis && isLoading && !profileData ? (
         <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
           <div className="flex flex-col items-center justify-center p-12 text-[var(--text-muted)] gap-4">
             <Loader2 className="animate-spin w-8 h-8" strokeWidth={1.5} />
             <span className="text-sm font-serif">{t('profile.analyzingText')}</span>
           </div>
         </div>
-      ) : error ? (
+      ) : enableAiAnalysis && error ? (
         <div className="w-full text-[var(--accent-warm)] text-sm p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--accent-warm)]">
           {error}
         </div>
-      ) : profileData ? (
+      ) : enableAiAnalysis && profileData ? (
         <div className="flex flex-col gap-6">
           <div className="w-full bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800">
             <div className="prose prose-zinc dark:prose-invert font-serif max-w-none text-[var(--text-secondary)] leading-relaxed prose-h3:mt-6 prose-h3:mb-3">
@@ -999,32 +1031,91 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
                         className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
                       >
                         <FolderOpen size={20} />
-                        Seleziona il tuo Vault Obsidian
+                        {vaultName ? `Aggiorna "${vaultName}"` : "Seleziona il tuo Vault Obsidian"}
                       </button>
                     ) : (
-                      <button
-                        onClick={handleZipExport}
-                        id="obsidian-zip-export-btn"
-                        className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
-                      >
-                        <Download size={20} />
-                        Scarica archivio ZIP per Obsidian
-                      </button>
+                      <div className="flex flex-col gap-3">
+                        {/* Banner Safari — scrittura diretta impossibile */}
+                        {isSafari && (
+                          <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5 flex flex-col gap-3">
+                            <div className="flex items-start gap-2">
+                              <span className="text-xl flex-shrink-0">🌐</span>
+                              <div>
+                                <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                                  Safari non supporta la scrittura diretta
+                                </p>
+                                <p className="text-xs text-[var(--text-secondary)] mt-1 leading-relaxed">
+                                  Per importare <strong>direttamente</strong> nel tuo Vault senza ZIP,
+                                  apri questa pagina in <strong>Chrome o Edge</strong>. Safari blocca
+                                  l'accesso al filesystem per motivi di sicurezza.
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                readOnly
+                                value={currentUrl}
+                                className="flex-1 text-xs bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-[var(--text-muted)] font-mono truncate"
+                                onClick={e => (e.target as HTMLInputElement).select()}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(currentUrl).then(() => {
+                                    setUrlCopied(true);
+                                    setTimeout(() => setUrlCopied(false), 2000);
+                                  });
+                                }}
+                                className="flex-shrink-0 px-3 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
+                              >
+                                {urlCopied ? "✓ Copiato!" : "Copia URL"}
+                              </button>
+                            </div>
+                            <p className="text-xs text-[var(--text-muted)]">
+                              Oppure usa il download ZIP qui sotto — funziona su tutti i browser.
+                            </p>
+                          </div>
+                        )}
+                        <button
+                          onClick={handleZipExport}
+                          id="obsidian-zip-export-btn"
+                          className="w-full bg-gradient-to-r from-violet-600 to-purple-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 hover:opacity-90 flex items-center justify-center gap-3 shadow-lg"
+                        >
+                          <Download size={20} />
+                          Scarica archivio ZIP per Obsidian
+                        </button>
+                      </div>
                     )}
 
                     <div className="p-4 rounded-xl bg-[var(--bg-secondary)] flex flex-col gap-3">
                       <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide">
-                        {isFileSystemSupported ? "Come funziona (Desktop)" : "Come procedere (Mobile)"}
+                        {isFileSystemSupported ? "Come funziona (Desktop)" : isSafari ? "Come procedere (Safari)" : "Come procedere (Mobile)"}
                       </p>
                       {isFileSystemSupported ? (
                         <ol className="text-xs text-[var(--text-secondary)] flex flex-col gap-2 list-none">
                           {[
-                            "Clicca il pulsante: si aprirà la finestra di selezione cartella.",
-                            "Seleziona la cartella del tuo Vault di Obsidian.",
+                            vaultName
+                              ? `Il vault "${vaultName}" è già memorizzato. Clicca e conferma l'accesso.`
+                              : "Clicca il pulsante: si aprirà la finestra di selezione cartella.",
+                            "Seleziona la cartella del tuo Vault di Obsidian (ricordata per le prossime volte).",
                             `I pensieri vengono scritti nelle cartelle PARA ${enrichedData ? "automaticamente" : "(cartella Inbox)"}. Obsidian si aprirà automaticamente!`,
                           ].map((step, i) => (
                             <li key={i} className="flex items-start gap-2">
                               <span className="flex-shrink-0 w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center text-[10px] font-bold">
+                                {i + 1}
+                              </span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      ) : isSafari ? (
+                        <ol className="text-xs text-[var(--text-secondary)] flex flex-col gap-2 list-none">
+                          {[
+                            "Copia l'URL qui sopra e aprilo in Chrome o Edge.",
+                            "In Chrome, potrai selezionare direttamente la cartella del tuo Vault.",
+                            "Oppure: scarica lo ZIP, estrailo e trascina le cartelle in Obsidian.",
+                          ].map((step, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-bold">
                                 {i + 1}
                               </span>
                               <span>{step}</span>
