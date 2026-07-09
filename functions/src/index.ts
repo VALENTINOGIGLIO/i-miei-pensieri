@@ -1,4 +1,8 @@
 import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
+
+// Inizializza l'app Firebase di default globalmente all'avvio dell'istanza
+admin.initializeApp();
 
 // Indirizzo email di default (preso dal primo utente, poiché l'utente non l'ha specificato)
 const DESTINATION_EMAIL = "b.valentinogiglio@gmail.com";
@@ -48,11 +52,6 @@ export const getAdminStats = functions.https.onCall(async (data, context) => {
   }
 
   try {
-    const admin = await import("firebase-admin");
-    if (!admin.apps.length) {
-      admin.initializeApp();
-    }
-
     // 1. Ottieni la lista utenti da Firebase Auth
     const listUsersResult = await admin.auth().listUsers(100);
     const users = listUsersResult.users.map(u => ({
@@ -110,11 +109,6 @@ export const triggerGithubWorkflow = functions.https.onCall(async (data, context
   }
 
   try {
-    const admin = await import("firebase-admin");
-    if (!admin.apps.length) {
-      admin.initializeApp();
-    }
-
     const firestore = new admin.firestore.Firestore({
       databaseId: "ai-studio-3088714c-a3be-4ce3-a9cd-f94c8dd37474"
     });
@@ -160,4 +154,3 @@ export const triggerGithubWorkflow = functions.https.onCall(async (data, context
     throw new functions.https.HttpsError("internal", err.message || "Errore sconosciuto.");
   }
 });
-
