@@ -6,13 +6,35 @@ service cloud.firestore {
     function isSignedIn() { return request.auth != null; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
+
+    // Helper per verificare l'integrità del client con Firebase App Check (reCAPTCHA Enterprise)
+    function isAppCheckVerified() {
+      return request.app != null 
+        && request.app.id == '1:732185655993:web:e3183beacbfed5c6a8f968';
+    }
+
+    function isValidEncryptedData(data) {
+      return data.keys().hasAll(['ciphertext', 'iv'])
+        && data.keys().size() == 2
+        && data.ciphertext is string && data.ciphertext.size() <= 128000
+        && data.iv is string && data.iv.size() <= 128;
+    }
 
     function isValidUser(data) {
-      return data.keys().size() == 0 || 
-             data.keys().hasOnly(['deletedAt', 'pbkdf2Iterations']) || 
-             data.keys().hasOnly(['pbkdf2Iterations']) || 
-             data.keys().hasOnly(['deletedAt']);
+      return data.keys().hasOnly([
+        'pbkdf2Iterations', 
+        'vaultKeyEncryptedWithPassword', 
+        'vaultKeyEncryptedWithSeedPhrase', 
+        'deletedAt',
+        'encryptedApiKey',
+        'apiKeyIv'
+      ])
+        && (data.keys().hasAny(['pbkdf2Iterations']) ? data.pbkdf2Iterations is number : true)
+        && (data.keys().hasAny(['vaultKeyEncryptedWithPassword']) ? isValidEncryptedData(data.vaultKeyEncryptedWithPassword) : true)
+        && (data.keys().hasAny(['vaultKeyEncryptedWithSeedPhrase']) ? isValidEncryptedData(data.vaultKeyEncryptedWithSeedPhrase) : true)
+        && (data.keys().hasAny(['deletedAt']) ? (data.deletedAt is number || data.deletedAt == null) : true)
+        && (data.keys().hasAny(['encryptedApiKey']) ? (data.encryptedApiKey is string || data.encryptedApiKey == null) : true)
+        && (data.keys().hasAny(['apiKeyIv']) ? (data.apiKeyIv is string || data.apiKeyIv == null) : true);
     }
 
     function isValidThought(data) {
@@ -23,13 +45,25 @@ service cloud.firestore {
         && data.timestamp is number;
     }
 
+    match /config/features {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.token.email == 'b.valentinogiglio@gmail.com';
+    }
+
+    match /config/github {
+      allow read, write: if isSignedIn() && request.auth.token.email == 'b.valentinogiglio@gmail.com';
+    }
+
     match /users/{userId} {
+      // Per blindare l'accesso con App Check (dopo aver configurato reCAPTCHA), sostituisci 'allow read: if isSignedIn()' con:
+      // allow read: if isAppCheckVerified() && isSignedIn() && isValidId(userId) && request.auth.uid == userId;
       allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
       allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
       allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
       allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
       
       match /thoughts/{thoughtId} {
+        // Per blindare l'accesso con App Check (dopo aver configurato reCAPTCHA), aggiungi 'isAppCheckVerified() &&' dopo il 'if'
         allow read: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
         allow list: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
         allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidId(thoughtId) && isValidThought(incoming());

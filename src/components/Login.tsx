@@ -40,21 +40,21 @@ export function Login() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-[var(--bg-base)] transition-colors duration-200">
-      <div className="bg-[var(--bg-base)] p-8 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 max-w-sm w-full flex flex-col gap-6 items-center">
-        <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center">
+      <div className="bg-[var(--bg-card)] p-8 rounded-3xl shadow-lg shadow-[var(--border-color)]/20 border border-[var(--border-color)] max-w-sm w-full flex flex-col gap-6 items-center animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="w-16 h-16 bg-[var(--accent-warm)]/10 text-[var(--accent-warm)] rounded-2xl flex items-center justify-center">
           <LogIn size={32} />
         </div>
         <div>
           <h2 className="text-2xl font-semibold text-[var(--text-primary)] font-display mb-2">{t('loginTitle')}</h2>
-          <p className="text-[var(--text-secondary)] text-sm">
+          <p className="text-[var(--text-secondary)] text-sm leading-relaxed">
             {t('loginDesc')}
           </p>
         </div>
-        {error && <div className="text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-3 rounded-xl text-sm w-full">{error}</div>}
+        {error && <div className="text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/30 p-3 rounded-xl text-sm w-full text-left">{error}</div>}
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-base)] py-3.5 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+          className="w-full bg-[var(--text-primary)] hover:opacity-90 hover:shadow-md text-[var(--bg-base)] py-3.5 px-4 rounded-xl font-medium transition-all flex items-center justify-center gap-3 active:scale-95"
         >
           {loading ? (
             <Loader2 size={20} className="animate-spin" />

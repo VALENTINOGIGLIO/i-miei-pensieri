@@ -1,0 +1,22 @@
+name: Disable Firebase Hosting (Undeploy)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  disable-hosting:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Disable Firebase Hosting
+        run: npx firebase-tools hosting:disable --non-interactive
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

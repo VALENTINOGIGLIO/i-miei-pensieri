@@ -25,7 +25,7 @@ export async function deriveKey(password: string, saltStr: string, iterations: n
     },
     passwordKey,
     { name: "AES-GCM", length: 256 },
-    false,
+    true, // extractable per supportare la conversione della chiave utente
     ["encrypt", "decrypt"]
   );
 }
@@ -85,4 +85,31 @@ export async function decryptText(ciphertextBase64: string, ivBase64: string, ke
 
   const dec = new TextDecoder();
   return dec.decode(decrypted);
+}
+
+export async function generateVaultKey(): Promise<CryptoKey> {
+  const cryptoObj = window.crypto || (window as any).msCrypto;
+  return await cryptoObj.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true, // extractable
+    ["encrypt", "decrypt"]
+  );
+}
+
+export async function exportKeyToBase64(key: CryptoKey): Promise<string> {
+  const cryptoObj = window.crypto || (window as any).msCrypto;
+  const exported = await cryptoObj.subtle.exportKey("raw", key);
+  return bufferToBase64(exported);
+}
+
+export async function importKeyFromBase64(base64: string): Promise<CryptoKey> {
+  const cryptoObj = window.crypto || (window as any).msCrypto;
+  const buffer = base64ToBuffer(base64);
+  return await cryptoObj.subtle.importKey(
+    "raw",
+    buffer,
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"]
+  );
 }

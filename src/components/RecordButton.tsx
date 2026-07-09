@@ -49,12 +49,11 @@ export function RecordButton({ isListening, onStart, onStop, disabled }: RecordB
         {/* Siri-like Aura Effect */}
         {isListening && (
           <div 
-            className="absolute inset-0 rounded-full pointer-events-none transition-all duration-75 ease-out"
+            className="absolute inset-0 rounded-full pointer-events-none transition-all duration-75 ease-out bg-transparent"
             style={{
-              backgroundColor: 'var(--accent-warm)',
-              opacity: 0.3 + (volume * 0.4),
-              transform: `scale(${1 + volume * 1.5})`,
-              filter: `blur(${10 + volume * 30}px)`
+              boxShadow: `0 0 ${20 + volume * 40}px ${5 + volume * 15}px var(--accent-warm)`,
+              opacity: 0.4 + (volume * 0.3),
+              transform: `scale(${1 + volume * 0.8})`,
             }}
           />
         )}

@@ -2,14 +2,16 @@ import BookOpen from "lucide-react/dist/esm/icons/book-open";
 import { useLanguage } from '../contexts/LanguageContext';
 import User from "lucide-react/dist/esm/icons/user";
 import Settings from "lucide-react/dist/esm/icons/settings";
+import Sparkles from "lucide-react/dist/esm/icons/sparkles";
 
 interface BottomNavProps {
-  activeTab: "pensieri" | "analisi" | "impostazioni";
-  onTabChange: (tab: "pensieri" | "analisi" | "impostazioni") => void;
+  activeTab: "pensieri" | "spunti" | "analisi" | "impostazioni";
+  onTabChange: (tab: "pensieri" | "spunti" | "analisi" | "impostazioni") => void;
   enableAnalisi?: boolean;
+  enableSpunti?: boolean;
 }
 
-export function BottomNav({ activeTab, onTabChange,  enableAnalisi = true, }: BottomNavProps) {
+export function BottomNav({ activeTab, onTabChange, enableAnalisi = true, enableSpunti = true }: BottomNavProps) {
   const { t } = useLanguage();
   return (
     <>
@@ -23,6 +25,15 @@ export function BottomNav({ activeTab, onTabChange,  enableAnalisi = true, }: Bo
             <BookOpen size={20} />
             <span className="text-[10px] font-medium">{t('nav.thoughts')}</span>
           </button>
+          {enableSpunti && (
+            <button
+              onClick={() => onTabChange("spunti")}
+              className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${activeTab === "spunti" ? "text-[var(--accent-warm)]" : "text-[var(--text-muted)]"}`}
+            >
+              <Sparkles size={20} />
+              <span className="text-[10px] font-medium">{t('nav.spunti', { defaultValue: 'Spunti' })}</span>
+            </button>
+          )}
           {enableAnalisi && (
             <button
               onClick={() => onTabChange("analisi")}
@@ -51,6 +62,15 @@ export function BottomNav({ activeTab, onTabChange,  enableAnalisi = true, }: Bo
           <BookOpen size={16} />
           {t('nav.thoughts')}
         </button>
+        {enableSpunti && (
+          <button
+            onClick={() => onTabChange("spunti")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-medium transition-all ${activeTab === "spunti" ? "bg-[var(--bg-base)] text-[var(--accent-warm)] shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50"}`}
+          >
+            <Sparkles size={16} />
+            {t('nav.spunti', { defaultValue: 'Spunti' })}
+          </button>
+        )}
         {enableAnalisi && (
           <button
             onClick={() => onTabChange("analisi")}

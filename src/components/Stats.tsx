@@ -137,8 +137,8 @@ export function Stats({ thoughts, apiKey, enableMoodSummary = true, enableAdvanc
         <div className="absolute top-0 right-0 p-6 text-[var(--accent-warm)] opacity-10 pointer-events-none">
           <Sparkles size={64} strokeWidth={1} />
         </div>
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="max-w-md">
             <h3 className="font-semibold text-[var(--text-primary)] mb-1 flex items-center gap-2">
               Riepilogo dell'Umore <Sparkles size={16} className="text-[var(--accent-warm)]" />
             </h3>
@@ -147,9 +147,16 @@ export function Stats({ thoughts, apiKey, enableMoodSummary = true, enableAdvanc
           <button 
             onClick={generateSummary}
             disabled={isGeneratingSummary}
-            className="px-4 py-2 bg-[var(--accent-warm)] text-[var(--bg-base)] text-sm font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50"
+            className="h-[40px] px-4 py-2 bg-[var(--accent-warm)] text-[var(--bg-base)] text-sm font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 whitespace-nowrap"
           >
-            {isGeneratingSummary ? <Loader2 size={16} className="animate-spin" /> : t('stats.generateSummaryBtn')}
+            {isGeneratingSummary ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                <span>Generando...</span>
+              </>
+            ) : (
+              t('stats.generateSummaryBtn')
+            )}
           </button>
         </div>
         

@@ -23,5 +23,15 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "android",
+    "ios",
+    "functions",
+    "**/*.tmp",
+    "old_onboarding.txt",
+    "old_legal.txt"
+  ]
 }

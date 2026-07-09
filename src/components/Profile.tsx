@@ -268,7 +268,7 @@ Genera anche un "mocContent": una bellissima Dashboard in Markdown per Obsidian 
 - Link [[wiki]] ai pensieri raggruppati per paraFolder
 - Nota: richiede plugin Dataview in Obsidian`;
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
 
       const requestBody = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -529,7 +529,7 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
         MOLTO IMPORTANTE: Se ci sono pochi pensieri (meno di 5), dichiara esplicitamente all'inizio che i dati sono insufficienti per un'analisi accurata.
       `;
 
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`;
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
 
       const requestBody = {
         contents: [{ parts: [{ text: prompt }] }],
@@ -650,8 +650,8 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
       {/* Header */}
       <div className="flex items-end justify-between">
         <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-bold font-display text-zinc-900">{t('profile.title')}</h2>
-          <p className="text-zinc-500 text-sm">{t('profile.subtitle')}</p>
+          <h2 className="text-2xl font-bold font-display text-[var(--text-primary)]">{t('profile.title')}</h2>
+          <p className="text-[var(--text-secondary)] text-sm">{t('profile.subtitle')}</p>
         </div>
         <button
           onClick={() => fetchProfile(true)}
@@ -693,8 +693,21 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
             </div>
           </div>
 
+          <div className="flex items-center justify-between mt-4 mb-2 px-1">
+            <h3 className="text-base font-bold font-display text-[var(--text-primary)]">Consigli di Lettura</h3>
+            <button
+              onClick={() => fetchProfile(true)}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 text-xs text-[var(--accent-warm)] hover:underline disabled:opacity-50 font-sans"
+              title="Rigenera Consigli di Lettura"
+            >
+              <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+              Rigenera Consigli
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {profileData.booksToDeepen?.length > 0 && (
+            {profileData && Array.isArray(profileData.booksToDeepen) && profileData.booksToDeepen.length > 0 && (
               <div className="bg-[var(--bg-card)] border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 text-[var(--accent-warm)] opacity-10">
                   <BookMarked size={48} strokeWidth={1.5} />
@@ -708,16 +721,16 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
                 <div className="flex flex-col gap-4 relative z-10">
                   {profileData.booksToDeepen.map((book, i) => (
                     <div key={i} className="flex flex-col gap-1">
-                      <h4 className="font-medium font-serif text-[var(--text-primary)] text-sm">{book.title}</h4>
-                      <span className="text-xs font-serif text-[var(--text-secondary)] mb-1">di {book.author}</span>
-                      <p className="text-sm font-serif text-[var(--text-secondary)] leading-relaxed">{book.reason}</p>
+                      <h4 className="font-medium font-serif text-[var(--text-primary)] text-sm">{book?.title}</h4>
+                      <span className="text-xs font-serif text-[var(--text-secondary)] mb-1">di {book?.author}</span>
+                      <p className="text-sm font-serif text-[var(--text-secondary)] leading-relaxed">{book?.reason}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {profileData.booksToChallenge?.length > 0 && (
+            {profileData && Array.isArray(profileData.booksToChallenge) && profileData.booksToChallenge.length > 0 && (
               <div className="bg-[var(--bg-card)] border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-6 text-[var(--accent-warm)] opacity-10">
                   <Compass size={48} strokeWidth={1.5} />
@@ -731,9 +744,9 @@ ${data.booksToChallenge.map(b => `### ${b.title}\n*di ${b.author}*\n\n${b.reason
                 <div className="flex flex-col gap-4 relative z-10">
                   {profileData.booksToChallenge.map((book, i) => (
                     <div key={i} className="flex flex-col gap-1">
-                      <h4 className="font-medium font-serif text-[var(--text-primary)] text-sm">{book.title}</h4>
-                      <span className="text-xs font-serif text-[var(--text-secondary)] mb-1">di {book.author}</span>
-                      <p className="text-sm font-serif text-[var(--text-secondary)] leading-relaxed">{book.reason}</p>
+                      <h4 className="font-medium font-serif text-[var(--text-primary)] text-sm">{book?.title}</h4>
+                      <span className="text-xs font-serif text-[var(--text-secondary)] mb-1">di {book?.author}</span>
+                      <p className="text-sm font-serif text-[var(--text-secondary)] leading-relaxed">{book?.reason}</p>
                     </div>
                   ))}
                 </div>

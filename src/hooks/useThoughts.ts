@@ -4,13 +4,13 @@ import { db, auth } from "../lib/firebase";
 import { encryptText, decryptText } from "../lib/crypto";
 import { ProcessedThought } from "../types";
 
-export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
+export function useThoughts(user: any, vaultKey: CryptoKey | null) {
   const [thoughts, setThoughts] = useState<ProcessedThought[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!auth.currentUser?.uid || !cryptoKey) {
+    if (!auth.currentUser?.uid || !vaultKey) {
       setThoughts([]);
       setLoading(false);
       return;
@@ -28,7 +28,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
           const data = docSnap.data();
           if (data.ciphertext && data.iv) {
             try {
-              const decryptedJson = await decryptText(data.ciphertext, data.iv, cryptoKey);
+              const decryptedJson = await decryptText(data.ciphertext, data.iv, vaultKey);
               const thought = JSON.parse(decryptedJson);
               loadedThoughts.push({ ...thought, id: docSnap.id, timestamp: data.timestamp });
             } catch (err) {
@@ -61,16 +61,16 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
     });
 
     return () => unsubscribe();
-  }, [user, cryptoKey]);
+  }, [user, vaultKey]);
 
   const saveThought = async (thought: ProcessedThought) => {
     if (!auth.currentUser?.uid) throw new Error("Utente non autenticato o UID mancante al momento del salvataggio.");
-    if (!cryptoKey) return;
+    if (!vaultKey) return;
     
     let thoughtRef;
     try {
       const thoughtJson = JSON.stringify(thought);
-      const { ciphertext, iv } = await encryptText(thoughtJson, cryptoKey);
+      const { ciphertext, iv } = await encryptText(thoughtJson, vaultKey);
       
       thoughtRef = doc(db, `users/${auth.currentUser.uid}/thoughts`, thought.id);
       console.log("Tentativo di scrittura nel path:", thoughtRef.path);
@@ -100,7 +100,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
   };
 
   const updateThought = async (id: string, updatedData: any) => {
-    if (!auth.currentUser?.uid || !cryptoKey) return;
+    if (!auth.currentUser?.uid || !vaultKey) return;
     try {
       // Fetch the existing thought from state to merge
       const existingThought = thoughts.find(t => t.id === id);
@@ -113,7 +113,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
 
       const mergedThought = { ...existingThought, ...updatedData };
       const thoughtJson = JSON.stringify(mergedThought);
-      const { ciphertext, iv } = await encryptText(thoughtJson, cryptoKey);
+      const { ciphertext, iv } = await encryptText(thoughtJson, vaultKey);
 
       const thoughtRef = doc(db, `users/${auth.currentUser.uid}/thoughts`, id);
       await updateDoc(thoughtRef, {
@@ -128,7 +128,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
   };
 
   const updateThoughtsBulk = async (thoughtsToUpdate: {id: string, updatedData: any}[]) => {
-    if (!auth.currentUser?.uid || !cryptoKey) return;
+    if (!auth.currentUser?.uid || !vaultKey) return;
     try {
       const batch = writeBatch(db);
       for (const item of thoughtsToUpdate) {
@@ -138,7 +138,7 @@ export function useThoughts(user: any, cryptoKey: CryptoKey | null) {
 
         const mergedThought = { ...existingThought, ...item.updatedData };
         const thoughtJson = JSON.stringify(mergedThought);
-        const { ciphertext, iv } = await encryptText(thoughtJson, cryptoKey);
+        const { ciphertext, iv } = await encryptText(thoughtJson, vaultKey);
 
         const thoughtRef = doc(db, `users/${auth.currentUser.uid}/thoughts`, item.id);
         batch.update(thoughtRef, {

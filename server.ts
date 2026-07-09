@@ -397,12 +397,9 @@ MOLTO IMPORTANTE: Se ci sono pochi pensieri (meno di 5), DEVI dichiarare esplici
 
 
 // ... (Qui c'è la fine della tua funzione app.post("/api/generate-profile"... ) )
-  // ... res.status(500).json({ error: error.message || "Failed to generate profile." });
-  //   }
-  // });
 
-  // INCOLLA QUI IL BLOCCO CHE HAI TAGLIATO:
-// Vite middleware for development
+
+  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useThoughts } from './hooks/useThoughts';
-import { useDictation } from './hooks/useDictation';
+import { useAudioRecorder } from './hooks/useAudioRecorder';
 import { BottomNav } from './components/BottomNav';
 import { Stats } from './components/Stats';
 import { RecordButton } from './components/RecordButton';
@@ -12,9 +12,10 @@ import { PasswordSetup } from './components/PasswordSetup';
 import { ApiKeySetup } from './components/ApiKeySetup';
 import { Legal } from './components/Legal';
 import { auth, db } from './lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { encryptText, decryptText } from './lib/crypto';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, getRedirectResult, browserPopupRedirectResolver, User } from 'firebase/auth';
+import { encryptText, decryptText, exportKeyToBase64, deriveKey } from './lib/crypto';
+import { generateSeedPhrase } from './lib/bip39-italian';
 import Share from "lucide-react/dist/esm/icons/share";
 import Search from "lucide-react/dist/esm/icons/search";
 import SettingsIcon from "lucide-react/dist/esm/icons/settings";
@@ -28,13 +29,21 @@ import Trash2 from "lucide-react/dist/esm/icons/trash-2";
 import Globe from "lucide-react/dist/esm/icons/globe";
 import Download from "lucide-react/dist/esm/icons/download";
 import FileText from "lucide-react/dist/esm/icons/file-text";
+import KeyRound from "lucide-react/dist/esm/icons/key-round";
+import Clipboard from "lucide-react/dist/esm/icons/clipboard";
+import Check from "lucide-react/dist/esm/icons/check";
 import X from "lucide-react/dist/esm/icons/x";
 import Loader2 from "lucide-react/dist/esm/icons/loader-2";
+import Info from "lucide-react/dist/esm/icons/info";
+import AlertTriangle from "lucide-react/dist/esm/icons/alert-triangle";
+import { EthicalGatekeeper } from "./components/EthicalGatekeeper";
+import { SpuntiRiflessione } from "./components/SpuntiRiflessione";
+import { getSecureItem, setSecureItem, removeSecureItem } from "./lib/storage";
+import { AppFeatures } from './lib/featureFlags';
 
 import { LazyMotion, domAnimation, m, AnimatePresence } from 'framer-motion';
 import { ConnectionIndicator } from './components/ConnectionIndicator';
 import { Profile } from './components/Profile';
-import { LandingPage } from './components/LandingPage';
 import { useLanguage } from './contexts/LanguageContext';
 
 export default function App() {
@@ -42,7 +51,18 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [activeTab, setActiveTab] = useState<"pensieri" | "analisi" | "impostazioni">("pensieri");
+  const [activeTab, setActiveTab] = useState<"pensieri" | "spunti" | "analisi" | "impostazioni" | "admin">("pensieri");
+  
+  // Dynamic features state loaded from Firestore with fallback to AppFeatures
+  const [features, setFeatures] = useState({
+    microphone: AppFeatures.microphone,
+    thoughtList: AppFeatures.thoughtList,
+    analysis: AppFeatures.analysis,
+    readingAdvice: AppFeatures.readingAdvice,
+    maintenanceMode: false
+  });
+
+  const isAdmin = user?.email === "b.valentinogiglio@gmail.com";
   const [viewMode, setViewMode] = useState<"list" | "categories">("list");
   
   // Settings / Features
@@ -50,31 +70,48 @@ export default function App() {
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => (localStorage.getItem("theme") as "light" | "dark") || (window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"));
   const { t, langPref, setLangPref } = useLanguage();
-  const [enablePanicMode, setEnablePanicMode] = useState(() => localStorage.getItem("enablePanicMode") === "true");
-  const [enableLocation, setEnableLocation] = useState(() => localStorage.getItem("enableLocation") === "true");
-  const [enableTimeCapsule, setEnableTimeCapsule] = useState(() => localStorage.getItem("enableTimeCapsule") === "true");
+  const [enablePanicMode, setEnablePanicMode] = useState(() => getSecureItem("enablePanicMode") === "true");
+  const [enableLocation, setEnableLocation] = useState(() => getSecureItem("enableLocation") === "true");
+  const [enableTimeCapsule, setEnableTimeCapsule] = useState(() => getSecureItem("enableTimeCapsule") === "true");
   
   const [isPanicModeActive, setIsPanicModeActive] = useState(false);
   const [selectedUnlockDate, setSelectedUnlockDate] = useState("");
   
   // Optional Feature Toggles
-  const [enablePrompts, setEnablePrompts] = useState(() => localStorage.getItem("enablePrompts") === "true");
+  const [enablePrompts, setEnablePrompts] = useState(() => getSecureItem("enablePrompts") === "true");
   const [enableAdvancedStats, setEnableAdvancedStats] = useState(() => {
-    const saved = localStorage.getItem('enableAdvancedStats');
+    const saved = getSecureItem('enableAdvancedStats');
     return saved !== null ? saved === 'true' : true;
   });
   const [enableInnerConnection, setEnableInnerConnection] = useState(() => {
-    const saved = localStorage.getItem('enableInnerConnection');
+    const saved = getSecureItem('enableInnerConnection');
     return saved !== null ? saved === 'true' : true;
   });
   const [enableMoodSummary, setEnableMoodSummary] = useState(() => {
-    const saved = localStorage.getItem('enableMoodSummary');
+    const saved = getSecureItem('enableMoodSummary');
     return saved !== null ? saved === 'true' : true;
   });
   const [enableAiAnalysis, setEnableAiAnalysis] = useState(() => {
-    const saved = localStorage.getItem('enableAiAnalysis');
+    const saved = getSecureItem('enableAiAnalysis');
     return saved !== null ? saved === 'true' : true;
   });
+
+  const [sectionsOrder, setSectionsOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem("analisi_sections_order");
+    return saved ? JSON.parse(saved) : ["connessione", "analisi_filosofica", "statistiche"];
+  });
+
+  const moveSection = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...sectionsOrder];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex >= 0 && targetIndex < newOrder.length) {
+      const temp = newOrder[index];
+      newOrder[index] = newOrder[targetIndex];
+      newOrder[targetIndex] = temp;
+      setSectionsOrder(newOrder);
+      localStorage.setItem("analisi_sections_order", JSON.stringify(newOrder));
+    }
+  };
 
   const [showFeaturesModal, setShowFeaturesModal] = useState(false);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
@@ -82,25 +119,30 @@ export default function App() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+  const [warningModal, setWarningModal] = useState<{ title: string; text: string; onConfirm: () => void } | null>(null);
+  const [showAiDisclaimerModal, setShowAiDisclaimerModal] = useState<{ onAccept: () => void } | null>(null);
+  const [showFeedbackGatekeeper, setShowFeedbackGatekeeper] = useState(false);
 
   const { thoughts, setThoughts, loading: thoughtsLoading, saveThought, deleteThought, updateThought, updateThoughtsBulk } = useThoughts(user, cryptoKey);
-  const { isListening, transcript, error: dictationError, startListening, stopListening, isSupported } = useDictation();
+  const { state: recorderState, isListening, transcript, error: dictationError, startRecording: startListening, stopRecording: stopListening, resetTranscript, isSupported } = useAudioRecorder(apiKey);
   const [lastTranscript, setLastTranscript] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
   const [showTranslateModal, setShowTranslateModal] = useState<string | null>(null);
   const [isTranslatingThoughts, setIsTranslatingThoughts] = useState(false);
+  const attemptedMaieuticaIds = useRef<Set<string>>(new Set());
+  const isSyncingRef = useRef(false);
 
   const promptsList = [
     "Quale ideologia politica trovi più pericolosa oggi, e perché parte di te ne è attratta?",
     "Cosa ti spaventa di più del tuo futuro e come la società ha plasmato questa paura?",
     "C'è una decisione morale passata che ti tormenta ancora?",
-    "Come la classe sociale in cui sei nato ha definito i tuoi limiti psicologici?",
+    "Come la classe sociale in cui sei nato ha definito i tuoi limiti personali?",
     "Se la tua filosofia di vita fosse applicata da tutti, il mondo collasserebbe?",
     "Qual è un tuo pregiudizio di cui sei consapevole ma che non riesci a sradicare?",
     "In che modo il tuo desiderio di approvazione sociale ti rende vulnerabile?",
     "Stai vivendo la tua vita o stai recitando un ruolo imposto dal tuo ambiente?",
-    "Quale aspetto della psicologia umana trovi inaccettabile?",
+    "Quale aspetto della natura umana trovi inaccettabile?",
     "Il concetto di libertà individuale è solo un'illusione rassicurante per te?"
   ];
   const [currentPrompt, setCurrentPrompt] = useState(promptsList[Math.floor(Math.random() * promptsList.length)]);
@@ -111,23 +153,28 @@ export default function App() {
   }, [theme]);
 
 
+  // Nuovi stati comportamentali ed etici
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [oblioThought, setOblioThought] = useState<any | null>(null);
+  const [skippedOblioThoughts, setSkippedOblioThoughts] = useState<string[]>([]);
+
   useEffect(() => {
-    localStorage.setItem("enablePrompts", String(enablePrompts));
-    localStorage.setItem("enableAdvancedStats", String(enableAdvancedStats));
-    localStorage.setItem("enableInnerConnection", String(enableInnerConnection));
-    localStorage.setItem("enableMoodSummary", String(enableMoodSummary));
-    localStorage.setItem("enablePanicMode", String(enablePanicMode));
-    localStorage.setItem("enableLocation", String(enableLocation));
-    localStorage.setItem("enableTimeCapsule", String(enableTimeCapsule));
-    localStorage.setItem("enableAiAnalysis", String(enableAiAnalysis));
+    setSecureItem("enablePrompts", String(enablePrompts));
+    setSecureItem("enableAdvancedStats", String(enableAdvancedStats));
+    setSecureItem("enableInnerConnection", String(enableInnerConnection));
+    setSecureItem("enableMoodSummary", String(enableMoodSummary));
+    setSecureItem("enablePanicMode", String(enablePanicMode));
+    setSecureItem("enableLocation", String(enableLocation));
+    setSecureItem("enableTimeCapsule", String(enableTimeCapsule));
+    setSecureItem("enableAiAnalysis", String(enableAiAnalysis));
   }, [enablePrompts, enableAdvancedStats, enableInnerConnection, enableMoodSummary, enablePanicMode, enableLocation, enableTimeCapsule, enableAiAnalysis]);
 
   useEffect(() => {
     const handleStorageChange = () => {
-      const savedAi = localStorage.getItem('enableAiAnalysis');
+      const savedAi = getSecureItem('enableAiAnalysis');
       if (savedAi !== null) setEnableAiAnalysis(savedAi === 'true');
       
-      const savedLoc = localStorage.getItem('enableLocation');
+      const savedLoc = getSecureItem('enableLocation');
       if (savedLoc !== null) setEnableLocation(savedLoc === 'true');
     };
     
@@ -137,8 +184,6 @@ export default function App() {
 
   useEffect(() => {
     if (window.location.pathname === "/scarica") return;
-    const hasSeen = localStorage.getItem("hasSeenOnboarding");
-    if (!hasSeen) setShowOnboarding(true);
 
     const timeout = setTimeout(() => setAuthLoading(false), 5000);
     getRedirectResult(auth, browserPopupRedirectResolver).catch(err => console.error("Redirect Auth Error", err));
@@ -147,7 +192,21 @@ export default function App() {
       clearTimeout(timeout);
       setUser(u);
       setAuthLoading(false);
-      if (!u) setCryptoKey(null);
+      
+      if (u) {
+        // If already logged in, never show onboarding
+        setShowOnboarding(false);
+        localStorage.setItem("hasSeenOnboarding", "true");
+        localStorage.setItem("idea_version_seen", "2.0");
+      } else {
+        setCryptoKey(null);
+        // If not logged in, show onboarding only if they haven't seen version 2.0
+        const hasSeen = localStorage.getItem("hasSeenOnboarding") === "true";
+        const seenVersion = localStorage.getItem("idea_version_seen");
+        if (!hasSeen || seenVersion !== "2.0") {
+          setShowOnboarding(true);
+        }
+      }
     }, (err) => {
       console.error("Auth Error", err);
       clearTimeout(timeout);
@@ -156,15 +215,69 @@ export default function App() {
     return () => { clearTimeout(timeout); unsubscribe(); };
   }, []);
 
-  // Sync API Key from Firestore when cryptoKey is available
+  // Sync and listen to feature flags in real-time
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, "config", "features"),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setFeatures({
+            microphone: data.microphone !== undefined ? data.microphone : AppFeatures.microphone,
+            thoughtList: data.thoughtList !== undefined ? data.thoughtList : AppFeatures.thoughtList,
+            analysis: data.analysis !== undefined ? data.analysis : AppFeatures.analysis,
+            readingAdvice: data.readingAdvice !== undefined ? data.readingAdvice : AppFeatures.readingAdvice,
+            maintenanceMode: data.maintenanceMode !== undefined ? data.maintenanceMode : false,
+          });
+        }
+      },
+      (err) => {
+        console.error("Errore nel caricamento delle feature flags remote:", err);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const handleToggleFeature = async (key: string, value: boolean) => {
+    try {
+      await setDoc(doc(db, "config", "features"), {
+        [key]: value
+      }, { merge: true });
+    } catch (err) {
+      console.error("Failed to update feature flag:", err);
+      throw err;
+    }
+  };
+
+  // Sync API Key from localStorage / Firestore when cryptoKey is available
   useEffect(() => {
     const fetchApiKey = async () => {
       if (user && cryptoKey) {
+        // Try local cache first for instant load
+        const cachedKey = getSecureItem(`encrypted_api_key_${user.uid}`);
+        const cachedIv = getSecureItem(`api_key_iv_${user.uid}`);
+        if (cachedKey && cachedIv) {
+          try {
+            const decryptedKey = await decryptText(cachedKey, cachedIv, cryptoKey);
+            if (decryptedKey) {
+              setApiKey(decryptedKey);
+            }
+          } catch (e) {
+            console.error("Failed to decrypt cached api key:", e);
+          }
+        }
+        
+        // Sync with Firestore in background
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
             if (data.encryptedApiKey && data.apiKeyIv) {
+              // Update cache if changed
+              if (data.encryptedApiKey !== cachedKey || data.apiKeyIv !== cachedIv) {
+                setSecureItem(`encrypted_api_key_${user.uid}`, data.encryptedApiKey);
+                setSecureItem(`api_key_iv_${user.uid}`, data.apiKeyIv);
+              }
               const decryptedKey = await decryptText(data.encryptedApiKey, data.apiKeyIv, cryptoKey);
               if (decryptedKey) {
                 setApiKey(decryptedKey);
@@ -172,12 +285,59 @@ export default function App() {
             }
           }
         } catch (e) {
-          console.error("Errore nel recupero della API key:", e);
+          console.error("Errore nel recupero della API key da Firestore:", e);
         }
       }
     };
     fetchApiKey();
   }, [user, cryptoKey]);
+
+  // Retroactive Socratic Maieutics sync for old thoughts
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
+
+    const generateRetroactiveMaieutica = async () => {
+      const privacyAccepted = localStorage.getItem('privacy_accepted_v2') === 'true';
+      if (!privacyAccepted || !apiKey || thoughts.length === 0 || thoughtsLoading) {
+        isSyncingRef.current = false;
+        return;
+      }
+
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+
+      let nextTimer = 3000;
+      let hasMore = false;
+      try {
+        const sortedThoughts = [...thoughts].sort((a, b) => b.timestamp - a.timestamp);
+        const oldThought = sortedThoughts.find(t => 
+          (!t.spunti_maieutici || t.spunti_maieutici.length === 0) && 
+          t.content && t.content.trim() &&
+          !attemptedMaieuticaIds.current.has(t.id)
+        );
+        if (oldThought) {
+          attemptedMaieuticaIds.current.add(oldThought.id);
+          console.log("Generazione retroattiva maieutica per il pensiero:", oldThought.id);
+          await triggerSocraticMaieutics(oldThought.id, oldThought.content);
+          hasMore = true;
+        }
+      } catch (err) {
+        console.error("Errore nel sync retroattivo maieutica:", err);
+        // Reschedule to check other thoughts even if this one failed
+        hasMore = true;
+      } finally {
+        isSyncingRef.current = false;
+        if (hasMore) {
+          timerId = setTimeout(generateRetroactiveMaieutica, nextTimer);
+        }
+      }
+    };
+
+    timerId = setTimeout(generateRetroactiveMaieutica, 3000);
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [thoughts, apiKey, thoughtsLoading]);
 
   // Auto-rename old default thoughts
   useEffect(() => {
@@ -199,6 +359,10 @@ export default function App() {
     if (user && cryptoKey && key) {
       try {
         const { ciphertext, iv } = await encryptText(key, cryptoKey);
+        // Salva in localStorage crittografata
+        setSecureItem(`encrypted_api_key_${user.uid}`, ciphertext);
+        setSecureItem(`api_key_iv_${user.uid}`, iv);
+        
         await setDoc(doc(db, 'users', user.uid), {
           encryptedApiKey: ciphertext,
           apiKeyIv: iv
@@ -207,6 +371,8 @@ export default function App() {
         console.error("Errore nel salvataggio della API key:", e);
       }
     } else if (user && !key) {
+      removeSecureItem(`encrypted_api_key_${user.uid}`);
+      removeSecureItem(`api_key_iv_${user.uid}`);
       try {
         await setDoc(doc(db, 'users', user.uid), {
           encryptedApiKey: null,
@@ -241,7 +407,7 @@ export default function App() {
     }
     setIsGeneratingPrompt(true);
     try {
-      const topics = ["sociologia", "psicologia umana profonda", "filosofia morale ed etica", "ideologia e condizionamento sociale", "politica e potere", "l'alienazione tecnologica", "il senso dell'esistenza", "le illusioni della società moderna", "la natura del dolore umano", "il libero arbitrio e il determinismo"];
+      const topics = ["sociologia", "animo umano e introspezione", "filosofia morale ed etica", "ideologia e condizionamento sociale", "politica e potere", "l'alienazione tecnologica", "il senso dell'esistenza", "le illusioni della società moderna", "la natura del dolore umano", "il libero arbitrio e il determinismo"];
       const randomTopic = topics[Math.floor(Math.random() * topics.length)];
       const recentThoughts = thoughts.slice(0, 10).map(t => t.content).join("\n");
       const res = await fetch(
@@ -265,24 +431,190 @@ export default function App() {
     }
   };
 
-  const handleStopRecording = async () => {
-    stopListening();
-    if (!transcript.trim()) return;
-    setLastTranscript(transcript);
+  // 7 Min Vocal Recording Limit Timer
+  useEffect(() => {
+    let interval: any = null;
+    if (isListening) {
+      setRecordingSeconds(0);
+      interval = setInterval(() => {
+        setRecordingSeconds(prev => {
+          if (prev >= 419) { // 7 minuti (420s)
+            clearInterval(interval);
+            stopListening();
+            return 420;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isListening, stopListening]);
+
+  // Diritto all'Oblio: trova pensieri più vecchi di 1 anno non elaborati
+  useEffect(() => {
+    if (thoughts.length > 0 && !oblioThought) {
+      const oneYearAgo = Date.now() - 365 * 24 * 60 * 60 * 1000;
+      const found = thoughts.find(t => t.timestamp <= oneYearAgo && t.title !== "⚠️ Errore Decrittografia" && !t.oblioProcessed && !skippedOblioThoughts.includes(t.id));
+      if (found) {
+        setOblioThought(found);
+      }
+    }
+  }, [thoughts, oblioThought, skippedOblioThoughts]);
+
+  // Pre-generazione Domande Maieutiche in background (sempre pronte al click)
+  // Rate limit: 15 chiamate/min → 1 ogni 4 secondi
+  useEffect(() => {
+    const privacyAccepted = localStorage.getItem('privacy_accepted_v2') === 'true';
+    if (!apiKey || !privacyAccepted || thoughts.length === 0) return;
+
+    const queue = thoughts.filter(
+      t => !t.spunti_maieutici || t.spunti_maieutici.length === 0
+    );
+    if (queue.length === 0) return;
+
+    let cancelled = false;
+    const RATE_DELAY_MS = 4000; // 15/min
+
+    const runQueue = async () => {
+      for (const thought of queue) {
+        if (cancelled) break;
+        try {
+          const prompt = `Agisci come un filosofo socratico. Leggi il pensiero e genera 2-3 domande aperte, chirurgiche e profonde per aiutare l'autore a scavare nella sua stessa logica. Non giudicare, non consigliare. Solo domande. Restituisci un array JSON di stringhe.\n\nPensiero: "${thought.content}"`;
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  temperature: 0.5,
+                  responseSchema: { type: "ARRAY", items: { type: "STRING" } },
+                },
+              }),
+            }
+          );
+          if (!cancelled && res.ok) {
+            const data = await res.json();
+            let text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) {
+              const s = text.indexOf('['), e = text.lastIndexOf(']');
+              if (s !== -1 && e !== -1) text = text.substring(s, e + 1);
+              const questions = JSON.parse(text);
+              if (Array.isArray(questions) && questions.length > 0) {
+                await updateThought(thought.id, { spunti_maieutici: questions });
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Errore pre-gen maieutica:", err);
+        }
+        if (!cancelled) {
+          await new Promise<void>(resolve => setTimeout(resolve, RATE_DELAY_MS));
+        }
+      }
+    };
+
+    runQueue();
+    return () => { cancelled = true; };
+  // Dipende da ID+lunghezza spunti per non rilanciare su ogni render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    apiKey,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    thoughts.map(t => `${t.id}:${(t.spunti_maieutici?.length ?? 0)}`).join(','),
+  ]);
+
+  const handleOblioArchive = async () => {
+    if (!oblioThought) return;
+    try {
+      await updateThought(oblioThought.id, { oblioProcessed: true, isArchived: true });
+      setOblioThought(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOblioDelete = async () => {
+    if (!oblioThought) return;
+    try {
+      await deleteThought(oblioThought.id);
+      setOblioThought(null);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleOblioPostpone = () => {
+    if (oblioThought) {
+      setSkippedOblioThoughts(prev => [...prev, oblioThought.id]);
+      setOblioThought(null);
+    }
+  };
+
+  // Seconda chiamata API indipendente: Maieutica Socratica (in background)
+  const triggerSocraticMaieutics = async (thoughtId: string, content: string) => {
+    if (!apiKey) return;
+    try {
+      const prompt = `Agisci come un filosofo socratico. Leggi il pensiero dell'utente e genera 2 o 3 domande aperte, chirurgiche e profonde per aiutarlo a scavare nella sua stessa logica. Non giudicare, non consigliare. Solo domande. Restituisci l'output in un array JSON.\n\nPensiero: "${content}"`;
+      
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.5,
+            responseSchema: {
+              type: "ARRAY",
+              items: { type: "STRING" }
+            }
+          },
+        })
+      });
+      
+      if (!res.ok) throw new Error("Gemini API error during socratic maieutics");
+      const data = await res.json();
+      let textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (textResp) {
+        const startIdx = textResp.indexOf('[');
+        const endIdx = textResp.lastIndexOf(']');
+        if (startIdx !== -1 && endIdx !== -1) {
+          textResp = textResp.substring(startIdx, endIdx + 1);
+        }
+        const questions = JSON.parse(textResp) as string[];
+        if (Array.isArray(questions)) {
+          await updateThought(thoughtId, { spunti_maieutici: questions });
+        }
+      }
+    } catch (e) {
+      console.error("Errore durante la generazione dei consigli maieutici:", e);
+    }
+  };
+
+  const processAndSaveThought = async (rawTranscript: string) => {
     setIsProcessing(true);
     setProcessError(null);
+    const thoughtId = crypto.randomUUID();
     try {
-      let defaultTitle = transcript.trim().split(' ').slice(0, 5).join(' ');
-      if (transcript.trim().split(' ').length > 5) defaultTitle += '...';
-      let aiResult = { title: defaultTitle, content: transcript.trim(), tags: ["riflessione"], depth: 5, category: "Altro" };
+      let defaultTitle = rawTranscript.split(' ').slice(0, 5).join(' ');
+      if (rawTranscript.split(' ').length > 5) defaultTitle += '...';
+      let aiResult = { title: defaultTitle, content: rawTranscript, tags: ["riflessione"], depth: 5, category: "Altro" };
       
-      if (apiKey) {
+      const privacyAccepted = localStorage.getItem('privacy_accepted_v2') === 'true';
+      if (apiKey && privacyAccepted) {
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `Analizza questo pensiero vocale trascritto e restituisci SOLO un JSON valido con questa struttura esatta, senza formattazione markdown e senza commenti:\n{"title": "Un titolo breve e accattivante", "content": "Il testo originale, migliorato leggermente per scorrevolezza se necessario ma mantenendo il significato", "tags": ["tag1", "tag2"], "depth": 7, "category": "Lavoro/Personale/Relazioni/Sviluppo"}\n\nPensiero: "${transcript}"` }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+            contents: [{ parts: [{ text: `Agisci come ghostwriter e analista esistenziale. Ricevi un flusso grezzo di pensiero vocale e il tuo compito è trasformarlo — non trascriverlo. Prendi ciò che c'è di autentico nel ragionamento e riscrivilo come una riflessione strutturata, densa, in prima persona, ad alto valore introspettivo. Scarta le banalità, espandi i nodi concettuali, elimina le ridondanze. Il risultato deve sembrare scritto da chi ha già metabolizzato l'esperienza, non da chi la sta raccontando. Non fare correzione bozze: fai architettura del pensiero. Genera anche un titolo essenziale e preciso (max 5 parole) che ne catturi il nucleo. Restituisci SOLO un JSON valido senza markdown:\n{"title": "Titolo essenziale", "content": "Riflessione riscritta", "tags": ["tag1", "tag2"], "depth": 7, "category": "Lavoro/Personale/Relazioni/Sviluppo"}\n\nFlusso grezzo: "${rawTranscript}"` }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.5 },
           })
         });
         const data = await res.json();
@@ -317,31 +649,42 @@ export default function App() {
         unlockTimestamp = new Date(selectedUnlockDate).getTime();
       }
 
-      await saveThought({
-        id: crypto.randomUUID(),
+      const newThought = {
+        id: thoughtId,
         title: aiResult.title || "Nuovo Pensiero",
-        content: aiResult.content || transcript.trim(),
-        rawText: transcript.trim(),
-        originalAudio: transcript.trim(),
+        content: aiResult.content || rawTranscript,
+        rawText: rawTranscript,
+        pensiero_originale_grezzo: rawTranscript,
+        pensiero_rielaborato_ia: aiResult.content || rawTranscript,
+        originalAudio: rawTranscript,
         timestamp: Date.now(),
         tags: aiResult.tags || ["riflessione"],
         depth: aiResult.depth || 5,
         category: aiResult.category || "Altro",
         location: locationObj,
         unlockDate: unlockTimestamp
-      });
+      };
+
+      await saveThought(newThought);
       setSelectedUnlockDate("");
+
+      // Avvia la chiamata in background per la maieutica socratica se l'API key è disponibile e il consenso è attivo
+      if (apiKey && privacyAccepted) {
+        triggerSocraticMaieutics(thoughtId, aiResult.content || rawTranscript);
+      }
       
     } catch (err) {
       console.error(err);
       setProcessError("Errore nell'analisi del pensiero. Assicurati che la chiave API sia valida.");
       // Salva comunque il pensiero originale in caso di errore AI
       await saveThought({
-        id: crypto.randomUUID(),
+        id: thoughtId,
         title: "Pensiero Salvato",
-        content: transcript.trim(),
-        rawText: transcript.trim(),
-        originalAudio: transcript.trim(),
+        content: rawTranscript,
+        rawText: rawTranscript,
+        pensiero_originale_grezzo: rawTranscript,
+        pensiero_rielaborato_ia: rawTranscript,
+        originalAudio: rawTranscript,
         timestamp: Date.now(),
         tags: ["bozza"],
         depth: 5,
@@ -349,11 +692,22 @@ export default function App() {
       });
     } finally {
       setIsProcessing(false);
+      resetTranscript();
     }
   };
 
-  const exportThoughtsTxt = () => {
-    if (thoughts.length === 0) return;
+  const handleStopRecording = async () => {
+    stopListening();
+  };
+
+  // Salva automaticamente il pensiero quando la trascrizione è pronta
+  useEffect(() => {
+    if (transcript.trim() && !isListening && recorderState === "idle" && !isProcessing) {
+      processAndSaveThought(transcript.trim());
+    }
+  }, [transcript, isListening, recorderState]);
+
+  const executeExportTxt = () => {
     const txt = thoughts.map(t => `Titolo: ${t.title}\nData: ${new Date(t.timestamp).toLocaleString()}\nTesto: ${t.content}\nTags: ${t.tags.join(', ')}\nCategoria: ${t.category}\n\n------------------------\n\n`).join('');
     const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -364,8 +718,19 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const exportThoughtsJson = () => {
+  const exportThoughtsTxt = () => {
     if (thoughts.length === 0) return;
+    setWarningModal({
+      title: "Esportazione Dati (ToS §4)",
+      text: "Esportando i tuoi pensieri, i dati vengono convertiti in un file di testo (.TXT) in chiaro sul tuo dispositivo. Qualsiasi app con accesso allo storage potrebbe leggerli. Sei l'unico responsabile della loro sicurezza.",
+      onConfirm: () => {
+        setWarningModal(null);
+        executeExportTxt();
+      }
+    });
+  };
+
+  const executeExportJson = () => {
     const blob = new Blob([JSON.stringify(thoughts, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -375,47 +740,90 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
+  const exportThoughtsJson = () => {
+    if (thoughts.length === 0) return;
+    setWarningModal({
+      title: t('app.warningExportTitle'),
+      text: t('app.warningExportText'),
+      onConfirm: () => {
+        setWarningModal(null);
+        executeExportJson();
+      }
+    });
+  };
+
   const handleTranslateThoughts = async (method: 'ai' | 'free', targetLang: string) => {
-    if (method === 'ai' && localStorage.getItem('privacy_accepted_v2') === 'false') {
+    setShowTranslateModal(null);
+    setWarningModal({
+      title: t('app.warningTranslationTitle'),
+      text: t('app.warningTranslationText'),
+      onConfirm: () => {
+        setWarningModal(null);
+        executeTranslation(method, targetLang);
+      }
+    });
+  };
+
+  const executeTranslation = async (method: 'ai' | 'free', targetLang: string) => {
+    if (method === 'ai' && localStorage.getItem('privacy_accepted_v2') !== 'true') {
       window.dispatchEvent(new Event('open_privacy_modal'));
       return;
     }
     
     if (method === 'ai' && !apiKey) {
-      setShowTranslateModal(null);
       setShowApiKeySetup(true);
       return;
     }
     
-    setShowTranslateModal(null);
     setIsTranslatingThoughts(true);
-    
     const langName = targetLang === 'en' ? 'Inglese' : 'Italiano';
     
     try {
       const bulkUpdates = [];
       for (const t of thoughts) {
+        let newTitle = t.title;
         let newContent = t.content;
         
         if (method === 'ai') {
-          const prompt = `Traduci il seguente testo in ${langName}. Restituisci SOLO il testo tradotto, senza commenti aggiuntivi:\n\n${t.content}`;
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+          // Translate content
+          const promptContent = `Traduci il seguente testo in ${langName}. Restituisci SOLO il testo tradotto, senza commenti aggiuntivi:\n\n${t.content}`;
+          const resContent = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1 } })
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptContent }] }], generationConfig: { temperature: 0.1 } })
           });
-          const data = await res.json();
-          const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (textResp) newContent = textResp;
+          const dataContent = await resContent.json();
+          const textRespContent = dataContent.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (textRespContent) newContent = textRespContent;
+
+          // Translate title
+          const promptTitle = `Traduci il seguente titolo in ${langName}. Restituisci SOLO il titolo tradotto, senza commenti aggiuntivi, massimo 5 parole:\n\n${t.title}`;
+          const resTitle = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey.trim()}`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: promptTitle }] }], generationConfig: { temperature: 0.1 } })
+          });
+          const dataTitle = await resTitle.json();
+          const textRespTitle = dataTitle.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (textRespTitle) newTitle = textRespTitle;
+
         } else {
           // Free API MyMemory
-          const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t.content)}&langpair=autodetect|${targetLang}`);
-          const data = await res.json();
-          if (data.responseData?.translatedText) newContent = data.responseData.translatedText;
+          // Translate content
+          const resContent = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t.content)}&langpair=it|${targetLang}`);
+          const dataContent = await resContent.json();
+          if (dataContent.responseData?.translatedText) newContent = dataContent.responseData.translatedText;
+
+          // Translate title
+          const resTitle = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t.title)}&langpair=it|${targetLang}`);
+          const dataTitle = await resTitle.json();
+          if (dataTitle.responseData?.translatedText) newTitle = dataTitle.responseData.translatedText;
         }
         
-        bulkUpdates.push({ id: t.id, updatedData: { content: newContent } });
+        const existingTranslations = t.translations || {};
+        existingTranslations[targetLang] = { title: newTitle, content: newContent };
+        
+        bulkUpdates.push({ id: t.id, updatedData: { translations: existingTranslations } });
         // sleep a bit to avoid rate limits
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 300));
       }
       
       if (bulkUpdates.length > 0) {
@@ -441,6 +849,9 @@ export default function App() {
       const snapshot = await getDocs(thoughtsRef);
       await Promise.all(snapshot.docs.map(d => deleteDoc(doc(db, 'users', user.uid, 'thoughts', d.id))));
 
+      // 1b. Delete main user document (GDPR Right to be Forgotten)
+      await deleteDoc(doc(db, 'users', user.uid));
+
       // 2. Clear all local storage data
       const keysToRemove = Object.keys(localStorage).filter(
         k => !['theme'].includes(k) // keep theme preference
@@ -459,15 +870,75 @@ export default function App() {
     }
   };
 
-  if (window.location.pathname === "/scarica" || window.location.pathname === "/landing") {
-    return <LandingPage />;
-  }
+  const [showRegenerateSeedModal, setShowRegenerateSeedModal] = useState(false);
+  const [newRegeneratedSeed, setNewRegeneratedSeed] = useState("");
+  const [isRegeneratingSeed, setIsRegeneratingSeed] = useState(false);
+  const [regenerateSeedError, setRegenerateSeedError] = useState<string | null>(null);
+  const [copiedSeed, setCopiedSeed] = useState(false);
+
+  const handleOpenRegenerateSeedModal = () => {
+    setNewRegeneratedSeed("");
+    setRegenerateSeedError(null);
+    setCopiedSeed(false);
+    setShowRegenerateSeedModal(true);
+  };
+
+  const handleRegenerateSeedPhrase = async () => {
+    if (!user || !cryptoKey) return;
+    setIsRegeneratingSeed(true);
+    setRegenerateSeedError(null);
+    try {
+      // 1. Esporta la master vault key a base64
+      const vaultKeyBase64 = await exportKeyToBase64(cryptoKey);
+      
+      // 2. Genera una nuova seed phrase
+      const seed = generateSeedPhrase();
+      
+      // 3. Ottieni le iterazioni PBKDF2 correnti da Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const iterations = userDoc.exists() ? userDoc.data()?.pbkdf2Iterations || 600000 : 600000;
+      
+      // 4. Deriva la chiave dal seed
+      const seedKey = await deriveKey(seed, user.uid, iterations);
+      
+      // 5. Cifra la vault key con la nuova chiave derived dal seed
+      const encSeed = await encryptText(vaultKeyBase64, seedKey);
+      
+      // 6. Salva su Firestore
+      await setDoc(userDocRef, {
+        vaultKeyEncryptedWithSeedPhrase: encSeed
+      }, { merge: true });
+      
+      // 7. Mostra la seed phrase all'utente
+      setNewRegeneratedSeed(seed);
+    } catch (e: any) {
+      console.error(e);
+      setRegenerateSeedError(`Errore durante la rigenerazione: ${e.message || String(e)}`);
+    } finally {
+      setIsRegeneratingSeed(false);
+    }
+  };
 
   if (authLoading) {
     return (
       <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[var(--bg-primary)]">
         <div className="w-16 h-16 border-4 border-[var(--accent-warm)] border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 text-[var(--text-secondary)] font-medium">Avvio dell'ambiente sicuro...</p>
+      </div>
+    );
+  }
+
+  if (features.maintenanceMode && !isAdmin) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-[var(--bg-primary)] p-6 text-center">
+        <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+          <AlertTriangle size={36} className="text-amber-500" />
+        </div>
+        <h1 className="text-2xl font-bold font-outfit text-[var(--text-primary)] mb-2">Manutenzione in Corso</h1>
+        <p className="text-sm text-[var(--text-muted)] max-w-md leading-relaxed">
+          L'applicazione è temporaneamente non disponibile per aggiornamenti programmati. Torneremo online a breve. Grazie per la pazienza.
+        </p>
       </div>
     );
   }
@@ -514,47 +985,78 @@ export default function App() {
     <div className="flex-1 overflow-y-auto flex flex-col relative">
       
       {/* Mic Box - at top of tab area */}
-      <div className="px-4 py-3 bg-[var(--bg-primary)] border-b border-[var(--border-color)] flex flex-col items-center sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
-        {transcript && isListening && (
-          <div className="w-full bg-[var(--bg-card)] p-3 rounded-xl shadow-sm border border-[var(--border-color)] italic text-[var(--text-secondary)] font-serif text-sm text-center mb-3">
-            "{transcript}"
-          </div>
-        )}
-        {enableTimeCapsule && (
-          <label className="w-full flex items-center justify-between bg-[var(--bg-secondary)] p-3 rounded-xl border border-[var(--border-color)] mb-3 cursor-pointer active:bg-[var(--bg-card)]">
-            <span className="text-sm font-medium text-[var(--text-secondary)] flex items-center gap-2 shrink-0">
-              <Lock size={16} /> {t('app.timeCapsule')}
-            </span>
-            <div className="flex-1 flex justify-end">
-              <input 
-                type="date" 
-                min={new Date().toISOString().split('T')[0]}
-                value={selectedUnlockDate} 
-                onChange={(e) => setSelectedUnlockDate(e.target.value)}
-                className="bg-transparent text-sm text-[var(--text-primary)] outline-none cursor-pointer text-right min-w-[120px]"
-              />
+      {features.microphone && (
+        <div className="px-4 py-3 bg-[var(--bg-primary)] border-b border-[var(--border-color)] flex flex-col items-center sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-95">
+          {transcript && isListening && (
+            <div className="w-full bg-[var(--bg-card)] p-3 rounded-xl shadow-sm border border-[var(--border-color)] italic text-[var(--text-secondary)] font-serif text-sm text-center mb-3">
+              "{transcript}"
             </div>
-          </label>
-        )}
-        <div className="py-2 w-full">
-          <RecordButton 
-            isListening={isListening} 
-            onStart={() => {
-              if (!apiKey) {
-                setShowApiKeySetup(true);
-                return;
-              }
-              startListening();
-            }} 
-            onStop={handleStopRecording} 
-            disabled={isProcessing} 
-          />
+          )}
+          {isListening && (
+            <div className="text-red-500 font-mono text-xs font-semibold mb-2 animate-pulse flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              Tempo: {Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')} / 7:00
+            </div>
+          )}
+          {(recorderState === "processing" || isProcessing) && (
+            <div className="w-full bg-[var(--bg-card)] p-4 rounded-xl shadow-sm border border-[var(--border-color)] text-[var(--text-secondary)] font-sans text-xs text-center mb-3 flex flex-col items-center gap-2 animate-pulse">
+              <Loader2 size={20} className="animate-spin text-[var(--accent-warm)]" />
+              <span className="font-semibold text-[var(--text-primary)]">
+                {recorderState === "processing" ? "Sto dando forma alle tue parole (trascrizione)..." : "Rielaborazione e analisi IA in corso..."}
+              </span>
+            </div>
+          )}
+          {enableTimeCapsule && (
+            <label className="w-full flex items-center justify-between bg-[var(--bg-secondary)] p-3 rounded-xl border border-[var(--border-color)] mb-3 cursor-pointer active:bg-[var(--bg-card)]">
+              <span className="text-sm font-medium text-[var(--text-secondary)] flex items-center gap-2 shrink-0">
+                <Lock size={16} /> {t('app.timeCapsule')}
+              </span>
+              <div className="flex-1 flex justify-end">
+                <input 
+                  type="date" 
+                  min={new Date().toISOString().split('T')[0]}
+                  value={selectedUnlockDate} 
+                  onChange={(e) => setSelectedUnlockDate(e.target.value)}
+                  className="bg-transparent text-sm text-[var(--text-primary)] outline-none cursor-pointer text-right min-w-[120px]"
+                />
+              </div>
+            </label>
+          )}
+          <div className="py-2 w-full">
+            <RecordButton 
+              isListening={isListening} 
+              onStart={() => {
+                if (!apiKey) {
+                  setShowApiKeySetup(true);
+                  return;
+                }
+                if (getSecureItem('ai_tos_accepted') === 'true') {
+                  startListening();
+                } else {
+                  setShowAiDisclaimerModal({ onAccept: () => startListening() });
+                }
+              }} 
+              onStop={handleStopRecording} 
+              disabled={isProcessing || recorderState === "processing"} 
+            />
+          </div>
         </div>
-      </div>
+      )}
       
-      <div className="p-4 pt-6">
+      <div className="p-4 pt-6 pb-28">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold font-outfit text-[var(--text-primary)]">{t('app.yourMind')}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold font-outfit text-[var(--text-primary)]">{t('app.yourMind')}</h2>
+            <button 
+              onClick={() => {
+                setShowOnboarding(true);
+              }}
+              className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] transition-all active:scale-95 mt-0.5"
+              title="Manifesto L'Idea"
+            >
+              <Info size={16} />
+            </button>
+          </div>
           {enablePanicMode && (
             <button
               onClick={() => setIsPanicModeActive(!isPanicModeActive)}
@@ -589,7 +1091,7 @@ export default function App() {
            <div className="text-center p-8 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] border-dashed mt-4">
              <p className="text-[var(--text-secondary)]">{t('app.noThoughts')}</p>
            </div>
-        ) : (
+        ) : features.thoughtList ? (
           <div className={`space-y-4 ${isPanicModeActive ? 'blur-md pointer-events-none opacity-50' : ''} transition-all duration-300`}>
             <AnimatePresence>
               {thoughts.map(thought => (
@@ -597,7 +1099,7 @@ export default function App() {
               ))}
             </AnimatePresence>
           </div>
-        )}
+        ) : null}
       </div>
       
       <Legal />
@@ -610,15 +1112,25 @@ export default function App() {
         {/* Main Content Area - flex-1 allows it to take remaining height minus BottomNav */}
         <div className="flex-1 overflow-hidden flex flex-col relative z-0">
            {activeTab === 'pensieri' && renderPensieri()}
-           {activeTab === 'analisi' && (
+           
+           {activeTab === 'spunti' && features.readingAdvice && (
+             <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
+               <div className="flex items-center gap-2 mb-6">
+                 <Sparkles size={24} className="text-[var(--text-primary)]" />
+                 <h2 className="text-2xl font-bold font-outfit text-[var(--text-primary)]">{t('nav.spunti', { defaultValue: 'Spunti' })}</h2>
+               </div>
+               <SpuntiRiflessione apiKey={apiKey} />
+             </div>
+           )}
+
+           {activeTab === 'analisi' && features.analysis && (
              <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-24">
-                {localStorage.getItem('privacy_accepted_v2') === 'false' && (
+                {localStorage.getItem('privacy_accepted_v2') !== 'true' && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-center shadow-lg">
                     <div className="w-12 h-12 bg-red-500 mx-auto mb-3 rounded-full" />
                     <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">{t('app.limitedFeatures')}</h3>
                     <p className="text-[var(--text-secondary)] mb-4 text-sm">
-                      Hai rifiutato l'Informativa sulla Privacy, pertanto le funzionalità di analisi IA sono state disabilitate.
-                      {t('app.acceptTermsToReactivate')}
+                      {t('app.privacyRejected')} {t('app.acceptTermsToReactivate')}
                     </p>
                     <button 
                       onClick={() => window.dispatchEvent(new Event('open_privacy_modal'))}
@@ -628,12 +1140,22 @@ export default function App() {
                     </button>
                   </div>
                 )}
-                {enableInnerConnection && <ConnectionIndicator thoughts={thoughts} />}
-                <Profile thoughts={thoughts} apiKey={apiKey} cryptoKey={cryptoKey} enableAiAnalysis={enableAiAnalysis} />
-                <Stats thoughts={thoughts} enableAdvancedStats={enableAdvancedStats} enableMoodSummary={enableMoodSummary} enableInnerConnection={false} apiKey={apiKey} />
+                {sectionsOrder.map(sectionId => {
+                  if (sectionId === 'connessione' && enableInnerConnection) {
+                    return <ConnectionIndicator key="connessione" thoughts={thoughts} />;
+                  }
+                  if (sectionId === 'analisi_filosofica' && enableAiAnalysis) {
+                    return <Profile key="analisi_filosofica" thoughts={thoughts} apiKey={apiKey} cryptoKey={cryptoKey} enableAiAnalysis={enableAiAnalysis} />;
+                  }
+                  if (sectionId === 'statistiche') {
+                    return <Stats key="statistiche" thoughts={thoughts} enableAdvancedStats={enableAdvancedStats} enableMoodSummary={enableMoodSummary} enableInnerConnection={false} apiKey={apiKey} />;
+                  }
+                  return null;
+                })}
                 <Legal />
              </div>
            )}
+
            {activeTab === 'impostazioni' && (
              <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
                <div className="flex items-center gap-2 mb-6">
@@ -666,7 +1188,7 @@ export default function App() {
                       <div>
                         <h3 className="font-medium text-[var(--text-primary)]">{t('app.language')}</h3>
                         <p className="text-sm text-[var(--text-secondary)]">
-                          {langPref === 'auto' ? 'Automatica' : langPref === 'it' ? 'Italiano' : 'English'}
+                          {langPref === 'auto' ? t('app.auto') : langPref === 'it' ? t('app.italian') : t('app.english')}
                         </p>
                       </div>
                     </div>
@@ -737,6 +1259,36 @@ export default function App() {
                    </div>
                    <ChevronRight size={20} className="opacity-50" />
                  </button>
+
+                  <div className="h-[1px] bg-[var(--border-color)] w-full"></div>
+                  
+                  <button onClick={() => handleOpenRegenerateSeedModal()} className="w-full flex items-center justify-between p-4 hover:bg-[var(--bg-hover)] transition-colors text-left text-amber-600 dark:text-amber-400">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                        <KeyRound size={20} className="text-amber-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-[var(--text-primary)]">{t('settings.regenerateSeed')}</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">{t('settings.regenerateSeedDesc')}</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={20} className="opacity-50 text-[var(--text-tertiary)]" />
+                  </button>
+
+                  <div className="h-[1px] bg-[var(--border-color)] w-full"></div>
+
+                 <button onClick={() => setShowFeedbackGatekeeper(true)} className="w-full flex items-center justify-between p-4 hover:bg-[var(--bg-hover)] transition-colors text-left text-green-600 dark:text-green-400">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                        <Info size={20} className="text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-[var(--text-primary)]">{t('settings.sendFeedback')}</h3>
+                        <p className="text-sm text-[var(--text-secondary)]">{t('settings.sendFeedbackDesc')}</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={20} className="opacity-50 text-[var(--text-tertiary)]" />
+                  </button>
                </div>
 
                 {/* ─── Esporta Pensieri ─── */}
@@ -760,6 +1312,44 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Personalizzazione Ordine Sezioni Analisi */}
+                <div className="bg-[var(--bg-secondary)] rounded-2xl p-4 border border-[var(--border-color)] mt-6">
+                  <h3 className="font-bold text-[var(--text-primary)] text-base mb-2">{t('settings.orderAnalysisTitle')}</h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4 leading-relaxed font-sans">{t('settings.orderAnalysisDesc')}</p>
+                  <div className="space-y-2">
+                    {sectionsOrder.map((sectionId, index) => {
+                      const name = sectionId === 'connessione' 
+                        ? t('settings.innerConnection') 
+                        : sectionId === 'analisi_filosofica' 
+                          ? t('settings.philosophicalAnalysis') 
+                          : t('settings.statsAndSummary');
+                      return (
+                        <div key={sectionId} className="flex items-center justify-between bg-[var(--bg-primary)] p-3 rounded-xl border border-[var(--border-color)]">
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{name}</span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={index === 0}
+                              onClick={() => moveSection(index, 'up')}
+                              className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] disabled:opacity-30 text-[var(--text-primary)] transition-colors"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              disabled={index === sectionsOrder.length - 1}
+                              onClick={() => moveSection(index, 'down')}
+                              className="p-1.5 rounded-lg hover:bg-[var(--bg-hover)] disabled:opacity-30 text-[var(--text-primary)] transition-colors"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* ─── ZONA PERICOLOSA: Elimina Account ─── */}
                 <div className="mt-2 border-2 border-red-500/30 rounded-2xl overflow-hidden bg-red-500/5">
                   <div className="p-4 border-b border-red-500/20">
@@ -768,7 +1358,7 @@ export default function App() {
                       {t('app.dangerZone')}
                     </h3>
                     <p className="text-sm text-[var(--text-secondary)] mt-1">
-                      Azioni irreversibili sull'account.
+                      {t('settings.dangerZoneDesc')}
                     </p>
                   </div>
                   <div className="p-4">
@@ -801,7 +1391,8 @@ export default function App() {
         <BottomNav 
           activeTab={activeTab} 
           onTabChange={setActiveTab} 
-          enableAnalisi={enableAiAnalysis || enableAdvancedStats || enableMoodSummary || enableInnerConnection} 
+          enableAnalisi={features.analysis && (enableAiAnalysis || enableAdvancedStats || enableMoodSummary || enableInnerConnection)} 
+          enableSpunti={features.readingAdvice}
         />
         
         <Legal />
@@ -821,7 +1412,7 @@ export default function App() {
                 <div className="bg-[var(--bg-primary)] rounded-3xl p-6 w-full max-w-md max-h-[85dvh] flex flex-col border border-[var(--border-color)] shadow-2xl" onClick={e => e.stopPropagation()}>
                   <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">{t('app.translateThoughtsTitle')}</h2>
                   <p className="text-[var(--text-secondary)] text-sm mb-6 leading-relaxed">
-                    Hai cambiato la lingua dell'interfaccia. Vuoi tradurre anche tutti i tuoi pensieri passati nella nuova lingua?
+                    {t('app.translateThoughtsDesc')}
                   </p>
                   
                   <div className="space-y-3 overflow-y-auto">
@@ -833,8 +1424,7 @@ export default function App() {
                       <div>
                         <div className="font-bold text-[var(--text-primary)]">{t('app.useAi')}</div>
                         <div className="text-xs text-[var(--text-secondary)] mt-1">
-                          (Consigliato) Traduzione eccellente. I pensieri verranno inviati temporaneamente a Google Gemini.
-                          Richiede l'accettazione della Privacy.
+                          {t('app.useAiDesc')}
                         </div>
                       </div>
                     </button>
@@ -858,9 +1448,9 @@ export default function App() {
                     >
                       <X className="text-[var(--text-tertiary)] shrink-0 mt-0.5" size={20} />
                       <div>
-                        <div className="font-bold text-[var(--text-primary)]">Non tradurre i pensieri</div>
+                        <div className="font-bold text-[var(--text-primary)]">{t('app.doNotTranslate')}</div>
                         <div className="text-xs text-[var(--text-secondary)] mt-1">
-                          Traduci solo l'interfaccia, lascia i pensieri vecchi nella lingua originale.
+                          {t('app.doNotTranslateDesc')}
                         </div>
                       </div>
                     </button>
@@ -903,7 +1493,7 @@ export default function App() {
                         <span className="text-sm text-[var(--text-secondary)]">{t('features.aiAnalysisDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableAiAnalysis} onChange={e => {
-                        if (e.target.checked && localStorage.getItem('privacy_accepted_v2') === 'false') {
+                        if (e.target.checked && localStorage.getItem('privacy_accepted_v2') !== 'true') {
                           window.dispatchEvent(new Event('open_privacy_modal'));
                           return;
                         }
@@ -954,7 +1544,7 @@ export default function App() {
                         <span className="text-sm text-[var(--text-secondary)]">{t('features.locationDesc')}</span>
                       </div>
                       <input type="checkbox" checked={enableLocation} onChange={e => {
-                        if (e.target.checked && localStorage.getItem('privacy_accepted_v2') === 'false') {
+                        if (e.target.checked && localStorage.getItem('privacy_accepted_v2') !== 'true') {
                           window.dispatchEvent(new Event('open_privacy_modal'));
                           return;
                         }
@@ -1079,6 +1669,212 @@ export default function App() {
           </AnimatePresence>,
           document.body
         )}
+        {showFeedbackGatekeeper && (
+          <EthicalGatekeeper 
+            onClose={() => setShowFeedbackGatekeeper(false)} 
+            onSuccess={() => {
+              window.location.href = "mailto:imieipensieri.privacy+consigli@gmail.com?subject=Consigli%20e%20Feedback%20I%20Miei%20Pensieri";
+            }} 
+          />
+        )}
+
+        {warningModal && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[250] flex items-center justify-center p-4" onClick={() => setWarningModal(null)}>
+            <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4 text-left" onClick={e => e.stopPropagation()}>
+              <h3 className="font-bold text-lg font-display text-[var(--text-primary)]">{warningModal.title}</h3>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-serif">{warningModal.text}</p>
+              <div className="flex gap-3 mt-2">
+                <button 
+                  onClick={() => setWarningModal(null)} 
+                  className="flex-1 py-3 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] text-sm font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                <button 
+                  onClick={warningModal.onConfirm} 
+                  className="flex-1 py-3 rounded-xl bg-[var(--accent-warm)] text-white text-sm font-semibold hover:opacity-90 shadow-sm transition-opacity"
+                >
+                  Procedi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAiDisclaimerModal && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-[250] flex items-center justify-center p-4">
+            <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-3xl max-w-sm w-full p-6 shadow-2xl flex flex-col gap-4 text-left">
+              <h3 className="font-bold text-lg font-display text-[var(--text-primary)]">ToS §3: Natura dell'IA</h3>
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed font-serif">
+                Questa applicazione è uno strumento di introspezione e NON fornisce supporto medico, clinico o psicologico. L'IA genera spunti oppositivi imprevedibili. L'uso è a rischio dell'utente; lo sviluppatore non risponde per disagi emotivi o conseguenze derivanti dall'output.
+              </p>
+              <div className="flex flex-col gap-3 mt-2">
+                <button 
+                  onClick={() => {
+                    setSecureItem('ai_tos_accepted', 'true');
+                    const callback = showAiDisclaimerModal.onAccept;
+                    setShowAiDisclaimerModal(null);
+                    callback();
+                  }} 
+                  className="w-full py-3 rounded-xl bg-[var(--accent-warm)] text-white text-sm font-semibold hover:opacity-90 shadow-sm transition-opacity"
+                >
+                  Ho capito e accetto i rischi
+                </button>
+                <button 
+                  onClick={() => setShowAiDisclaimerModal(null)} 
+                  className="w-full py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  Annulla
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── OBLIO PROGRAMMATO OVERLAY MODAL ─── */}
+        {oblioThought && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[250] flex items-center justify-center p-6 animate-in fade-in duration-300">
+            <div className="bg-[var(--bg-card)] max-w-sm w-full p-6 rounded-3xl shadow-2xl border border-[var(--border-color)] flex flex-col gap-4 text-center relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-[var(--accent-warm)]" />
+              
+              <div className="w-12 h-12 bg-[var(--accent-warm)]/10 text-[var(--accent-warm)] rounded-full flex items-center justify-center mx-auto">
+                <AlertTriangle size={24} />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <h3 className="text-base font-bold text-[var(--text-primary)] font-display">
+                  Un anno fa scrivevi...
+                </h3>
+                <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+                  Diritto all'Oblio Programmato
+                </p>
+                <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-3.5 rounded-2xl text-left my-2 italic text-zinc-600 dark:text-zinc-400 text-xs font-serif leading-relaxed max-h-[120px] overflow-y-auto border-l-4 border-l-[var(--accent-warm)]/60 select-none pointer-events-none">
+                  &ldquo;{oblioThought.content}&rdquo;
+                </div>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-sans text-left">
+                  Questo pensiero è stato scritto più di 1 anno fa. Per rispettare la tua privacy ed evitare l'accumulo passivo di dati personali, decidi come procedere. Nota: la cancellazione è definitiva e irreversibile.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  onClick={handleOblioArchive}
+                  className="w-full bg-[var(--accent-warm)] hover:opacity-90 text-white py-3 px-4 rounded-xl font-semibold text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Conserva nell'Archivio Storico
+                </button>
+                <button
+                  onClick={handleOblioDelete}
+                  className="w-full bg-red-600/10 text-red-600 border border-red-500/20 hover:bg-red-600/20 py-3 px-4 rounded-xl font-semibold text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  Lascia svanire per sempre (Elimina)
+                </button>
+                <button
+                  onClick={handleOblioPostpone}
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] py-3 px-4 rounded-xl font-semibold text-xs transition-all active:scale-95 flex items-center justify-center gap-2 mt-1"
+                >
+                  Chiedimelo più tardi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+            {/* ─── REGENERATE SEED PHRASE MODAL ─── */}
+            {showRegenerateSeedModal && (
+              <m.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-end sm:items-center justify-center p-4"
+                onClick={() => !isRegeneratingSeed && setShowRegenerateSeedModal(false)}
+              >
+                <m.div
+                  initial={{ y: 60, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 60, scale: 0.95 }}
+                  className="bg-[var(--bg-card)] rounded-3xl p-6 w-full max-w-md border border-[var(--border-color)] shadow-2xl flex flex-col gap-5"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center flex-shrink-0">
+                      <KeyRound size={24} className="text-amber-500" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-[var(--text-primary)] font-outfit">Rigenera Seed Phrase</h2>
+                      <p className="text-xs text-[var(--text-secondary)]">Nuova chiave di sicurezza di emergenza</p>
+                    </div>
+                  </div>
+
+                  {!newRegeneratedSeed ? (
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        La Seed Phrase ti permette di recuperare i tuoi dati se dimentichi la password. 
+                        Rigenerando la Seed Phrase, <b>la vecchia non funzionerà più</b> per sbloccare la tua cassaforte.
+                      </p>
+                      
+                      {regenerateSeedError && (
+                        <div className="text-red-500 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl text-xs text-left font-sans">
+                          {regenerateSeedError}
+                        </div>
+                      )}
+
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => setShowRegenerateSeedModal(false)}
+                          disabled={isRegeneratingSeed}
+                          className="flex-1 py-3 rounded-xl font-bold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors text-xs active:scale-95"
+                        >
+                          Annulla
+                        </button>
+                        <button 
+                          onClick={handleRegenerateSeedPhrase}
+                          disabled={isRegeneratingSeed}
+                          className="flex-1 py-3 rounded-xl font-bold bg-[var(--accent-warm)] text-white hover:opacity-90 transition-opacity text-xs active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          {isRegeneratingSeed ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              <span>Elaborazione...</span>
+                            </>
+                          ) : (
+                            "Genera Nuova"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                        Ecco la tua nuova frase di recupero di 12 parole. <b>Scrivila su carta e conservala in un luogo sicuro!</b> Se perdi sia la password sia questa frase, perderai tutti i dati.
+                      </p>
+
+                      <div className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] p-4 rounded-2xl font-mono text-sm text-[var(--text-primary)] leading-relaxed select-all relative grid grid-cols-2 gap-2">
+                        {newRegeneratedSeed.split(" ").map((word, idx) => (
+                          <span key={idx} className="bg-[var(--bg-primary)] px-2.5 py-1 border border-[var(--border-color)] rounded-lg text-xs font-semibold text-[var(--text-secondary)] flex items-center justify-start gap-1">
+                            <span className="text-[var(--text-muted)] text-[9px] mr-1">{idx + 1}.</span>{word}
+                          </span>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(newRegeneratedSeed);
+                          setCopiedSeed(true);
+                          setTimeout(() => setCopiedSeed(false), 2000);
+                        }}
+                        className="flex items-center justify-center gap-2 text-xs text-[var(--accent-warm)] font-semibold hover:underline"
+                      >
+                        {copiedSeed ? <Check size={14} /> : <Clipboard size={14} />}
+                        {copiedSeed ? "Copiata!" : "Copia negli appunti"}
+                      </button>
+
+                      <button 
+                        onClick={() => setShowRegenerateSeedModal(false)}
+                        className="w-full py-3 rounded-xl font-bold bg-[var(--accent-warm)] text-white hover:opacity-90 transition-opacity text-xs active:scale-95 mt-2"
+                      >
+                        Ho salvato la nuova frase
+                      </button>
+                    </div>
+                  )}
+                </m.div>
+              </m.div>
+            )}
       </div>
     </LazyMotion>
   );

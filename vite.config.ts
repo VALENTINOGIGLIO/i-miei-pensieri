@@ -15,11 +15,7 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
-      minify: false,
-      target: "esnext",
-      rollupOptions: {
-        treeshake: false
-      }
+      target: "esnext"
     }
   };
 });

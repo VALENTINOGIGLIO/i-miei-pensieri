@@ -45,41 +45,41 @@ export function ConnectionIndicator({ thoughts }: { thoughts: ProcessedThought[]
   }
 
   return (
-    <div className={`p-4 rounded-xl border mb-8 flex flex-col gap-3 transition-colors relative bg-[var(--bg-card)] ${colorClass}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`p-2 bg-[var(--bg-base)] rounded-xl shadow-sm ${iconClass}`}>
+    <div className={`p-5 rounded-3xl border mb-8 flex flex-col gap-4 bg-[var(--bg-card)] border-[var(--border-color)] relative ${showInfo ? 'z-20' : 'z-0'}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 bg-[var(--bg-base)] rounded-xl shadow-sm ${iconClass} flex items-center justify-center`}>
             <Activity size={20} strokeWidth={1.5} />
           </div>
           <div className="flex items-center gap-2">
             <div>
-              <h3 className="font-semibold text-sm">{t('connection.analysisTitle')}</h3>
-              <p className="text-xs opacity-80">{t('connection.last7Days')}</p>
+              <h3 className="font-semibold text-sm text-[var(--text-primary)] leading-tight">{t('connection.analysisTitle')}</h3>
+              <p className="text-xs text-[var(--text-secondary)] mt-0.5">{t('connection.last7Days')}</p>
             </div>
             <button 
               onClick={() => setShowInfo(!showInfo)}
-              className="p-1.5 hover:bg-black/5 rounded-xl transition-colors ml-1"
+              className="p-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-xl transition-colors ml-1 flex items-center justify-center"
               aria-label={t('connection.infoLabel')}
             >
-              <Info size={16} strokeWidth={1.5} className="opacity-70" />
+              <Info size={14} strokeWidth={1.5} className="opacity-80" />
             </button>
           </div>
         </div>
-        <div className="text-right">
-          <span className="font-bold text-lg">{levelText}</span>
-          <p className="text-xs opacity-80">{recentCount} {recentCount === 1 ? 'pensiero' : 'pensieri'} registrati</p>
+        <div className="text-left sm:text-right">
+          <span className={`font-bold text-lg ${iconClass} animate-pulse-organic`}>{levelText}</span>
+          <p className="text-xs text-[var(--text-secondary)] mt-0.5">{recentCount} {recentCount === 1 ? 'pensiero' : 'pensieri'} registrati</p>
         </div>
       </div>
       
-      <div className="w-full bg-black/5 rounded-full h-2 overflow-hidden mt-1 relative">
+      <div className="w-full bg-zinc-200 dark:bg-zinc-800 rounded-full h-2 overflow-hidden mt-1 relative">
         <div 
-          className="bg-current h-full rounded-full transition-all duration-1000 ease-out" 
+          className="bg-[var(--accent-warm)] h-full rounded-full transition-all duration-1000 ease-out" 
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
 
       {showInfo && (
-        <div className="absolute top-16 left-4 right-4 bg-[var(--bg-card)] shadow-xl dark:shadow-none border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 z-10 text-[var(--text-primary)] animate-in fade-in slide-in-from-top-2">
+        <div className="absolute top-20 left-4 right-4 bg-[var(--bg-card)] shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 z-10 text-[var(--text-primary)] animate-in fade-in slide-in-from-top-2">
           <div className="flex justify-between items-start mb-2">
             <h4 className="font-semibold text-sm flex items-center gap-2 font-display">
                {t('connection.howItWorks')}

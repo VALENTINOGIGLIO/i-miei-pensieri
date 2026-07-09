@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import Info from "lucide-react/dist/esm/icons/info";
 import ArrowRight from "lucide-react/dist/esm/icons/arrow-right";
 import Shield from "lucide-react/dist/esm/icons/shield";
 import Globe from "lucide-react/dist/esm/icons/globe";
 import { useLanguage } from "../contexts/LanguageContext";
+import { IdeaScreen } from "./IdeaScreen";
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -11,7 +11,7 @@ interface OnboardingProps {
 
 export function Onboarding({ onComplete }: OnboardingProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [step, setStep] = useState(0); // Step 0 is language selection
+  const [step, setStep] = useState(() => localStorage.getItem("hasSeenOnboarding") === "true" ? 1 : 0);
   const [isAgeChecked, setIsAgeChecked] = useState(false);
   const [isPrivacyChecked, setIsPrivacyChecked] = useState(false);
   const [isAiChecked, setIsAiChecked] = useState(false);
@@ -54,6 +54,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     // Hide old cookie banner just in case
     localStorage.setItem('legal_accepted', 'true');
     localStorage.setItem('hasSeenOnboarding', 'true');
+    localStorage.setItem('idea_version_seen', '2.0');
 
     setIsVisible(false);
     setTimeout(() => {
@@ -96,23 +97,12 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           </div>
         ) : step === 1 ? (
         <div className="max-w-2xl w-full flex flex-col gap-8 animate-in fade-in slide-in-from-right-8 duration-500">
-          
           <div className="flex items-center gap-4 mb-2">
-            <div className="w-12 h-12 bg-blue-50 text-[var(--accent-warm)] rounded-2xl flex items-center justify-center shadow-sm">
-              <Info size={24} />
-            </div>
             <h1 className="text-3xl sm:text-4xl font-semibold text-[var(--text-primary)] font-display tracking-tight">
-              {t('onboardingTitle1')}
+              L&apos;Idea
             </h1>
           </div>
-          
-          <div className="prose prose-zinc prose-base sm:prose-lg leading-relaxed text-[var(--text-secondary)]">
-            <p>{t('onboardingP1_1')}</p>
-            <p>{t('onboardingP1_2')}</p>
-            <p>{t('onboardingP1_3')}</p>
-            <p>{t('onboardingP1_4')}</p>
-          </div>
-          
+          <IdeaScreen onAccept={handleNext} enableTimer={localStorage.getItem("hasSeenOnboarding") !== "true"} />
         </div>
         ) : (
         <div className="max-w-2xl w-full flex flex-col gap-8 animate-in fade-in slide-in-from-right-8 duration-500">
@@ -188,12 +178,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         {step === 0 ? (
           <></>
         ) : step === 1 ? (
-          <button
-            onClick={handleNext}
-            className="w-full flex items-center justify-center gap-3 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-base)] py-4 px-8 rounded-2xl font-medium transition-all shadow-md hover:shadow-lg active:scale-95"
-          >
-            {t('onboardingNext')} <ArrowRight size={20} />
-          </button>
+          <></>
         ) : (
           <button
             onClick={handleFinish}
